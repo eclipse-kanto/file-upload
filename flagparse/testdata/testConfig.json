@@ -1,0 +1,22 @@
+{
+  "files": "test",
+  "broker": "testBroker",
+  "username": "testUsername",
+  "password": "testPassword",
+  "name": "testName",
+  "type": "testType",
+  "context": "testContext",
+  "period": "25ns",
+  "stopTimeout": "20ns",
+  "delete": true,
+  "checksum": true,
+  "singleUpload": true,
+  "active": true,
+  "activeFrom": "2020-04-12T23:20:00.00Z",
+  "activeTill": "2020-04-12T23:21:00.00Z",
+  "logFile": "defaultLogFile",
+  "logLevel": "defaultLogLevel",
+  "logFileSize": 1,
+  "logFileCount": 2,
+  "logFileMaxAge": 3
+}
