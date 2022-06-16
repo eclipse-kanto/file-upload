@@ -34,7 +34,7 @@ type PeriodicExecutor struct {
 //
 // The executor starts invoking the task when from time is reached. If from is nil of in the past, the executor
 // starts right away. The execution continues till the to time is reached, unless to is nil. In that case execution
-// continues untill the Stop is invoked
+// continues until the Stop is invoked
 func NewPeriodicExecutor(from *time.Time, to *time.Time, period time.Duration, task func()) *PeriodicExecutor {
 	e := &PeriodicExecutor{}
 	e.period = period
@@ -94,7 +94,7 @@ func (e *PeriodicExecutor) stopTicker() {
 	}
 }
 
-// Stop stops periodic execution an cleans used resources.
+// Stop stops periodic execution and cleans used resources.
 func (e *PeriodicExecutor) Stop() {
 	e.stopTicker()
 

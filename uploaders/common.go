@@ -122,7 +122,7 @@ func ExtractDictionary(options map[string]string, prefix string) map[string]stri
 	return info
 }
 
-// ComputeMD5 returns the MD5 hash of a file encoded as base64 string.
+// ComputeMD5 returns the MD5 hash of a file, which can be encoded as base64 string.
 func ComputeMD5(f *os.File) (string, error) {
 	h := md5.New()
 	if _, err := io.Copy(h, f); err != nil {

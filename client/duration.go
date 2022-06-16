@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-//Duration is custom type of type time.Duration in order to add json unmarshall support
+//Duration is custom type of type time.Duration in order to add json unmarshal support
 type Duration time.Duration
 
 //UnmarshalJSON unmarshal duration type

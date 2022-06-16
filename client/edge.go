@@ -31,7 +31,7 @@ type BrokerConfig struct {
 	Password string `json:"password,omitempty" descr:"Password for authorized local client"`
 }
 
-// EdgeConfiguration represents local Edge Thing configuration - its device, tenant and prolicy identifiers.
+// EdgeConfiguration represents local Edge Thing configuration - its device, tenant and policy identifiers.
 type EdgeConfiguration struct {
 	DeviceID string `json:"deviceId"`
 	TenantID string `json:"tenantId"`

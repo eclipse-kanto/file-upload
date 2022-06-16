@@ -65,7 +65,7 @@ type AutoUploadableState struct {
 	EndTime   *time.Time `json:"endTime"`
 }
 
-// AutoUploadable feature implementation. Implements all requred communication with the backend.
+// AutoUploadable feature implementation. Implements all required communication with the backend.
 // Customized with UploadCustomizer
 type AutoUploadable struct {
 	client *ditto.Client
@@ -185,7 +185,7 @@ func (u *AutoUploadable) Connect() error {
 	return err
 }
 
-// Disconnect AutoUploadable to the Ditto endpoint and cleanup used resources
+// Disconnect AutoUploadable from the Ditto endpoint and clean up used resources
 func (u *AutoUploadable) Disconnect() {
 	close(u.statusCh)
 
@@ -241,7 +241,7 @@ func (e *ErrorResponse) Error() string {
 	return fmt.Sprintf("error response [code=%d, msg=%s]", e.Status, e.Message)
 }
 
-// messageHadler should be called in separate go routine for each request
+// messageHandler should be called in separate go routine for each request
 func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope) {
 	if !strings.HasPrefix(msg.Path, "/features/"+u.cfg.Name) {
 		return //not for me
@@ -261,14 +261,14 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 
 	payload, err := json.Marshal(value)
 	if err != nil {
-		logger.Errorf("cound not parse message value: %v", msg.Value)
+		logger.Errorf("could not parse message value: %v", msg.Value)
 	}
 
 	operationPrefix := "/features/" + u.cfg.Name + "/inbox/messages/"
 	operation := strings.TrimPrefix(msg.Path, operationPrefix)
 
 	if operation == msg.Path { //wrong prefix
-		logger.Warningf("ingoring unsupported message '%v'", msg.Topic)
+		logger.Warningf("ignoring unsupported message '%v'", msg.Topic)
 		return
 	}
 
