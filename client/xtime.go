@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-//Xtime is custom stuct, containing a time.Time in order to add json unmarshall support
+//Xtime is custom stuct, containing a time.Time in order to add json unmarshal support
 type Xtime struct {
 	Time *time.Time
 }
