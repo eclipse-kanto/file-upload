@@ -45,7 +45,7 @@ func TestLogLevelTrace(t *testing.T) {
 	validate("TRACE", true, true, true, true, true, t)
 }
 
-// TestNopWriter tests logger functions without writter.
+// TestNopWriter tests logger functions without writer.
 func TestNopWriter(t *testing.T) {
 	// Prepare
 	dir := "_tmp-logger"

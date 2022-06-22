@@ -61,7 +61,7 @@ var (
 	TestCliFullArgs       []*Arg
 	FullUploadParsedFlags *ParsedFlags
 
-	// used in actual testcases, put here to avoid dupliaction
+	// used in actual test cases, put here to avoid duplication
 	DefaultBrokerConfig client.BrokerConfig
 	DefaultUploadConfig client.UploadableConfig
 	DefaultLogConfig    logger.LogConfig
@@ -143,7 +143,7 @@ func VerifyNotFoundError(returnedError error, expected bool, t *testing.T) {
 	}
 }
 
-// RemoveCliArg removes an argument if some test neededs to omit it
+// RemoveCliArg removes an argument if some test needs to omit it
 func RemoveCliArg(name string, args []*Arg) {
 	for i, arg := range args {
 		if arg.Name == name {

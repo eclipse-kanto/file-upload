@@ -26,8 +26,8 @@ import (
 
 // Constants for AutoUploadable 'state' property values
 const (
-	StatePending   = "PENDING"   // StatePending co
-	StateUploading = "UPLOADING" //
+	StatePending   = "PENDING"
+	StateUploading = "UPLOADING"
 	StatePaused    = "PAUSED"
 	StateSuccess   = "SUCCESS"
 	StateFailed    = "FAILED"
@@ -198,7 +198,7 @@ func (us *Uploads) Remove(correlationID string) {
 	}
 }
 
-// Stop waits for pending uploads to complete in the fiven timeout. Uploads which are still
+// Stop waits for pending uploads to complete in the given timeout. Uploads which are still
 // pending after the timeout are canceled.
 func (us *Uploads) Stop(timeout time.Duration) {
 	logger.Info("waiting for pending uploads...")
