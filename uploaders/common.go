@@ -107,7 +107,7 @@ func (u *HTTPUploader) UploadFile(file *os.File, md5 *string) error {
 }
 
 // ExtractDictionary extracts from the given map properties with a specified prefix.
-// In the resulting dictionary, propery names have the prefix removed.
+// In the resulting dictionary, property names have the prefix removed.
 func ExtractDictionary(options map[string]string, prefix string) map[string]string {
 	info := make(map[string]string)
 
@@ -122,7 +122,7 @@ func ExtractDictionary(options map[string]string, prefix string) map[string]stri
 	return info
 }
 
-// ComputeMD5 returns the MD5 hash of a file encoded as base64 string.
+// ComputeMD5 returns the MD5 hash of a file, which is encoded as base64 string.
 func ComputeMD5(f *os.File) (string, error) {
 	h := md5.New()
 	if _, err := io.Copy(h, f); err != nil {

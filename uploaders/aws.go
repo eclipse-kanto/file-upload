@@ -98,7 +98,7 @@ func NewAWSUploader(options map[string]string) (Uploader, error) {
 	return &AWSUploader{cred.bucket, objectKey, uploader}, nil
 }
 
-// UploadFile perfroms AWS S3 file upload
+// UploadFile performs AWS S3 file upload
 func (u *AWSUploader) UploadFile(file *os.File, md5 *string) error {
 	name := u.objectKey
 	if u.objectKey == "" {

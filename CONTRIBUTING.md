@@ -37,7 +37,7 @@ https://www.eclipse.org/projects/handbook/#resources-commit
 * Make sure test cases provide sufficient code coverage (see GitHub actions for minimal accepted coverage).
 * Make sure the test suite passes after your changes.
 * Commit your changes into that branch.
-* Use descriptive and meaningful commit messages. Start the first line of the commit message with the issue number and titile e.g. `[#9865] Add token based authentication`.
+* Use descriptive and meaningful commit messages. Start the first line of the commit message with the issue number and title e.g. `[#9865] Add token based authentication`.
 * Squash multiple commits that are related to each other semantically into a single one.
 * Make sure you use the `-s` flag when committing as explained above.
 * Push your changes to your branch in your forked repository.

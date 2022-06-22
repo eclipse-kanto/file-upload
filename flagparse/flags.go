@@ -60,7 +60,7 @@ func NewUploadFileConfig() *UploadFileConfig {
 
 //ParseFlags Define & Parse all flags
 func ParseFlags(version string) (*client.BrokerConfig, *client.UploadableConfig, *logger.LogConfig, string, ConfigFileMissing) {
-	dumpFiles := flag.Bool("dumpFiles", false, "On startup dump the file paths matching the '-files' glob pattern to standart output.")
+	dumpFiles := flag.Bool("dumpFiles", false, "On startup dump the file paths matching the '-files' glob pattern to standard output.")
 
 	config := NewUploadFileConfig()
 	printVersion := flag.Bool("version", false, "Prints current version and exits")
@@ -132,7 +132,7 @@ func applyConfigurationFile(configFile string, brokerConfig *client.BrokerConfig
 	def := GetUploadFileConfigDefaults()
 	var warn ConfigFileMissing
 
-	// Load configuration file (if posible)
+	// Load configuration file (if possible)
 	if len(configFile) > 0 {
 		err := LoadJSON(configFile, def)
 
