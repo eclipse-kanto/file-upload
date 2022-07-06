@@ -159,7 +159,7 @@ func NewAutoUploadable(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploa
 	result.state.StartTime = uploadableCfg.ActiveFrom.Time
 	result.state.EndTime = uploadableCfg.ActiveTill.Time
 
-	result.info = map[string]string{"supportedProviders": uploaders.StorageProviderAWS + "," + uploaders.StorageProviderHTTP}
+	result.info = map[string]string{"supportedProviders": uploaders.StorageProviderAWS + "," + uploaders.StorageProviderAzure + "," + uploaders.StorageProviderHTTP}
 
 	result.uploads = NewUploads()
 
@@ -469,7 +469,7 @@ func (u *AutoUploadable) UploadFiles(correlationID string, files []string, optio
 	childIDs := u.uploads.AddMulti(correlationID, files, u.cfg.Delete, u.cfg.Checksum, u)
 	for i, childID := range childIDs {
 		options := uploaders.ExtractDictionary(options, optionsPrefix)
-		options["storage.providers"] = "aws, generic"
+		options["storage.providers"] = "aws, azure, generic"
 		options["file.path"] = files[i]
 
 		go u.sendUploadRequest(childID, options, files[i])

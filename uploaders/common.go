@@ -36,7 +36,7 @@ const ContentMD5 = "Content-MD5"
 
 // Uploader interface wraps the generic UploadFile method
 type Uploader interface {
-	UploadFile(file *os.File, md5 *string) error
+	UploadFile(file *os.File, useChecksum bool) error
 }
 
 // HTTPUploader handles generic HTTP uploads
@@ -70,7 +70,7 @@ func NewHTTPUploader(options map[string]string) (Uploader, error) {
 }
 
 // UploadFile performs generic HTTP file upload
-func (u *HTTPUploader) UploadFile(file *os.File, md5 *string) error {
+func (u *HTTPUploader) UploadFile(file *os.File, useChecksum bool) error {
 	stats, err := file.Stat()
 	if err != nil {
 		return err
@@ -86,8 +86,12 @@ func (u *HTTPUploader) UploadFile(file *os.File, md5 *string) error {
 		req.Header.Set(name, value)
 	}
 
-	if md5 != nil {
-		req.Header.Set(ContentMD5, *md5)
+	if useChecksum {
+		md5, err := ComputeMD5(file, true)
+		if err != nil {
+			return err
+		}
+		req.Header.Set(ContentMD5, md5)
 	}
 
 	req.ContentLength = stats.Size()
@@ -122,8 +126,8 @@ func ExtractDictionary(options map[string]string, prefix string) map[string]stri
 	return info
 }
 
-// ComputeMD5 returns the MD5 hash of a file, which is encoded as base64 string.
-func ComputeMD5(f *os.File) (string, error) {
+// ComputeMD5 returns the MD5 hash of a file, which can be encoded as base64 string.
+func ComputeMD5(f *os.File, encodeBase64 bool) (string, error) {
 	h := md5.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
@@ -133,6 +137,9 @@ func ComputeMD5(f *os.File) (string, error) {
 
 	f.Seek(0, 0)
 
+	if !encodeBase64 {
+		return string(md5), nil
+	}
 	encoded := base64.StdEncoding.EncodeToString(md5)
 
 	return encoded, nil

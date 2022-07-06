@@ -99,17 +99,26 @@ func NewAWSUploader(options map[string]string) (Uploader, error) {
 }
 
 // UploadFile performs AWS S3 file upload
-func (u *AWSUploader) UploadFile(file *os.File, md5 *string) error {
+func (u *AWSUploader) UploadFile(file *os.File, useChecksum bool) error {
 	name := u.objectKey
 	if u.objectKey == "" {
 		name = file.Name()
+	}
+
+	var md5 string
+	if useChecksum {
+		hash, err := ComputeMD5(file, true)
+		if err != nil {
+			return err
+		}
+		md5 = hash
 	}
 
 	_, err := u.uploader.Upload(context.Background(), &s3.PutObjectInput{
 		Bucket:     &u.bucket,
 		Key:        aws.String(name),
 		Body:       file,
-		ContentMD5: md5,
+		ContentMD5: &md5,
 	})
 
 	return err

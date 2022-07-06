@@ -457,12 +457,10 @@ func (u *SingleUpload) start(options map[string]string) error {
 
 	go func() {
 		file, err := os.Open(u.filePath)
-		var md5 *string
+		var useChecksum bool
 
 		if err == nil && u.parent.useChecksum {
-			c, e := uploaders.ComputeMD5(file)
-			md5 = &c
-			err = e
+			useChecksum = true
 		}
 
 		if err == nil {
@@ -474,7 +472,7 @@ func (u *SingleUpload) start(options map[string]string) error {
 			u.file = file
 			u.mutex.Unlock()
 
-			err = uploader.UploadFile(file, md5)
+			err = uploader.UploadFile(file, useChecksum)
 		}
 
 		if err != nil {
@@ -507,6 +505,8 @@ func getUploader(options map[string]string) (uploaders.Uploader, error) {
 		return uploaders.NewHTTPUploader(options)
 	} else if storage == uploaders.StorageProviderAWS {
 		return uploaders.NewAWSUploader(options)
+	} else if storage == uploaders.StorageProviderAzure {
+		return uploaders.NewAzureUploader(options)
 	}
 
 	return nil, fmt.Errorf("unknown storage provider '%s'", storage)
