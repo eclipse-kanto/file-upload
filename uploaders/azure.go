@@ -36,7 +36,7 @@ type AzureUploader struct {
 	container string
 }
 
-// NewAzureUploader construct new AWSUploader from the provided 'start' operation options
+// NewAzureUploader constructs new AWSUploader from provided 'start' operation options
 func NewAzureUploader(options map[string]string) (Uploader, error) {
 	uploader := &AzureUploader{
 		endpoint:  options[AzureEndpoint],
@@ -55,7 +55,7 @@ func NewAzureUploader(options map[string]string) (Uploader, error) {
 	return uploader, nil
 }
 
-// UploadFile perfroms Azure file upload
+// UploadFile performs Azure file upload
 func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(fmt.Sprint(u.endpoint, u.container, "/", filepath.Base(file.Name()), "?", u.sas), &clientOptions)
@@ -78,7 +78,7 @@ func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
 	response, err := blockBlobClient.UploadFileToBlockBlob(context.Background(), file, options) // perform upload
 	if err == nil {
 		if response.StatusCode/100 != 2 {
-			return fmt.Errorf("Unsuccessful response status code - %v", response.StatusCode)
+			return fmt.Errorf("unsuccessful response status code - %v", response.StatusCode)
 		}
 	}
 	return err
