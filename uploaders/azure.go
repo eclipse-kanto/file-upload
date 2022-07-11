@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/eclipse-kanto/file-upload/logger"
 )
 
 // Constants for Azure upload 'start' operation options
@@ -77,7 +78,8 @@ func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
 
 	response, err := blockBlobClient.UploadFileToBlockBlob(context.Background(), file, options) // perform upload
 	if err == nil {
-		if response.StatusCode/100 != 2 {
+		logger.Debugf("azure blob upload response status code - %v", response.StatusCode)
+		if response.StatusCode != 201 {
 			return fmt.Errorf("unsuccessful response status code - %v", response.StatusCode)
 		}
 	}
