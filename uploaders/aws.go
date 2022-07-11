@@ -65,8 +65,6 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
-const missingParameterErrMsg = "required parameter '%s' missing or empty"
-
 // NewAWSUploader construct new AWSUploader from the provided 'start' operation options
 func NewAWSUploader(options map[string]string) (Uploader, error) {
 	cred, err := getAWSCredentials(options)

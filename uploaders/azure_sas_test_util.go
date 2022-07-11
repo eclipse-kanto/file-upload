@@ -115,7 +115,7 @@ func generateSignarute(udk azblob.UserDelegationKey, azureTestCredentials AzureT
 	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
-func getOneHourAzureSas(t *testing.T, azureTestCredentials AzureTestCredentials) (string, error) {
+func getOneHourAzureSAS(t *testing.T, azureTestCredentials AzureTestCredentials) (string, error) {
 	t.Helper()
 
 	options := azidentity.ClientSecretCredentialOptions{}
@@ -138,10 +138,10 @@ func getOneHourAzureSas(t *testing.T, azureTestCredentials AzureTestCredentials)
 	if err != nil {
 		return "", nil
 	}
-	return generateEncodedSas(udk, azureTestCredentials, keyInfo, signature), nil
+	return generateEncodedSAS(udk, azureTestCredentials, keyInfo, signature), nil
 }
 
-func generateEncodedSas(udk azblob.UserDelegationKey, azureTestCredentials AzureTestCredentials, keyInfo azblob.KeyInfo, signature string) string {
+func generateEncodedSAS(udk azblob.UserDelegationKey, azureTestCredentials AzureTestCredentials, keyInfo azblob.KeyInfo, signature string) string {
 	result := bytes.Buffer{}
 	appendToQuery(&result, "sv", *udk.SignedVersion)
 	appendToQuery(&result, "se", *keyInfo.Expiry)

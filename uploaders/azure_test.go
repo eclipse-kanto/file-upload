@@ -42,7 +42,7 @@ func testAzureUpload(t *testing.T, useChecksum bool) {
 	err = u.UploadFile(f, useChecksum)
 	assertNoError(t, err)
 
-	urlStr := fmt.Sprint(options[AzureEndpoint], options[AzureContainerName], "/", testFile, "?", options[AzureSas])
+	urlStr := fmt.Sprint(options[AzureEndpoint], options[AzureContainerName], "/", testFile, "?", options[AzureSAS])
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(urlStr, &clientOptions)
 	defer deleteBlob(blockBlobClient)
@@ -63,7 +63,7 @@ func testAzureUpload(t *testing.T, useChecksum bool) {
 
 func TestNewAzureUploaderErrors(t *testing.T) {
 	options := getAzureTestOptions(t)
-	requiredParams := []string{AzureContainerName, AzureEndpoint, AzureSas}
+	requiredParams := []string{AzureContainerName, AzureEndpoint, AzureSAS}
 
 	for _, param := range requiredParams {
 		options := partialCopy(options, param)
@@ -116,11 +116,11 @@ func getAzureTestOptions(t *testing.T) map[string]string {
 	t.Helper()
 
 	azureTestCredentials := getAzureTestCredentials(t)
-	azureSas, err := getOneHourAzureSas(t, azureTestCredentials)
+	azureSAS, err := getOneHourAzureSAS(t, azureTestCredentials)
 	assertNoError(t, err)
 	return map[string]string{
 		AzureEndpoint:      fmt.Sprintf(azureURLPattern, azureTestCredentials.accountName),
-		AzureSas:           azureSas,
+		AzureSAS:           azureSAS,
 		AzureContainerName: azureTestCredentials.containerName,
 	}
 }

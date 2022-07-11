@@ -34,6 +34,8 @@ const (
 // ContentMD5 header name
 const ContentMD5 = "Content-MD5"
 
+const missingParameterErrMsg = "required parameter '%s' missing or empty"
+
 // Uploader interface wraps the generic UploadFile method
 type Uploader interface {
 	UploadFile(file *os.File, useChecksum bool) error

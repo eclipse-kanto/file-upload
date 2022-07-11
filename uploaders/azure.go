@@ -25,7 +25,7 @@ const (
 	StorageProviderAzure = "azure"
 
 	AzureEndpoint      = "azure.storage.endpoint"
-	AzureSas           = "azure.shared.access.signature"
+	AzureSAS           = "azure.shared.access.signature"
 	AzureContainerName = "azure.blob.container"
 )
 
@@ -36,18 +36,18 @@ type AzureUploader struct {
 	container string
 }
 
-// NewAzureUploader constructs new AWSUploader from provided 'start' operation options
+// NewAzureUploader constructs new AzureUploader from provided 'start' operation options
 func NewAzureUploader(options map[string]string) (Uploader, error) {
 	uploader := &AzureUploader{
 		endpoint:  options[AzureEndpoint],
-		sas:       options[AzureSas],
+		sas:       options[AzureSAS],
 		container: options[AzureContainerName],
 	}
 	if uploader.endpoint == "" {
 		return nil, fmt.Errorf(missingParameterErrMsg, AzureEndpoint)
 	}
 	if uploader.sas == "" {
-		return nil, fmt.Errorf(missingParameterErrMsg, AzureSas)
+		return nil, fmt.Errorf(missingParameterErrMsg, AzureSAS)
 	}
 	if uploader.container == "" {
 		return nil, fmt.Errorf(missingParameterErrMsg, AzureContainerName)
