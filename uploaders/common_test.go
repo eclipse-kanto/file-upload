@@ -160,7 +160,7 @@ func testHTTPUploadFailureAddr(t *testing.T, addr string) {
 	u, err := NewHTTPUploader(options)
 	assertNoError(t, err)
 
-	err = u.UploadFile(f, nil)
+	err = u.UploadFile(f, false)
 	assertError(t, err)
 }
 
@@ -187,7 +187,7 @@ func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool) {
 	assertNoError(t, err)
 
 	md5 := getChecksum(t, f, useChecksum)
-	err = u.UploadFile(f, md5)
+	err = u.UploadFile(f, true)
 	assertNoError(t, err)
 
 	assertNoError(t, handler.err)
@@ -207,7 +207,7 @@ func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool) {
 
 func getChecksum(t *testing.T, f *os.File, useChecksum bool) *string {
 	if useChecksum {
-		md5, err := ComputeMD5(f)
+		md5, err := ComputeMD5(f, true)
 		assertNoError(t, err)
 
 		return &md5
@@ -258,6 +258,13 @@ func assertNil(t *testing.T, obj interface{}) {
 	}
 }
 
+func assertEquals(t *testing.T, name string, expected int64, actual int64) {
+	t.Helper()
+	if expected != actual {
+		t.Fatalf("%v does not match - expected '%v', but was '%v'", name, expected, actual)
+	}
+}
+
 func assertStringsSame(t *testing.T, name string, expected string, actual string) {
 	t.Helper()
 	if expected != actual {
@@ -288,4 +295,30 @@ func prefixKeys(m map[string]string, prefix string) map[string]string {
 	}
 
 	return r
+}
+
+func partialCopy(m map[string]string, omit string) map[string]string {
+	c := map[string]string{}
+
+	for k, v := range m {
+		if k != omit {
+			c[k] = v
+		}
+	}
+
+	return c
+}
+
+func assertFailsWith(t *testing.T, u interface{}, err error, msg string) {
+	t.Helper()
+
+	assertNil(t, u)
+
+	if err == nil {
+		t.Fatalf("error '%s' expected", msg)
+	}
+
+	if err.Error() != msg {
+		t.Fatalf("expected error '%s', but was '%v'", msg, err)
+	}
 }

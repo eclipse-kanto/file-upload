@@ -153,6 +153,30 @@ golang.org/x/net (v0.0.0-20211123203042-d83791d6bcd9)
 * Project: https://pkg.go.dev/golang.org/x/net
 * Source:  https://github.com/golang/net/tree/d83791d6bcd9ec2bdaacd08f4da4718370382c74
 
+azure-sdk-for-go/sdk/azcore (0.20.0)
+
+* License: MIT License
+* Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/azcore
+* Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/azcore/v0.20.0/sdk/azcore
+
+azure-sdk-for-go/sdk/azidentity (0.12.0)
+
+* License: MIT License
+* Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/azidentity
+* Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/azidentity/v0.12.0/sdk/azidentity
+
+azure-sdk-for-go/sdk/internal (0.8.1)
+
+* License: MIT License
+* Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/internal
+* Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/internal/v0.8.1/sdk/internal
+
+azure-sdk-for-go/sdk/storage/azblob (0.2.0)
+
+* License: MIT License
+* Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/storage/azblob
+* Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/storage/azblob/v0.2.0/sdk/storage/azblob
+
 ## Cryptography
 
 Content may contain encryption software. The country in which you are currently

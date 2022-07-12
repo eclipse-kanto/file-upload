@@ -46,8 +46,7 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 	assertNoError(t, err)
 	defer f.Close()
 
-	md5 := getChecksum(t, f, useChecksum)
-	err = u.UploadFile(f, md5)
+	err = u.UploadFile(f, useChecksum)
 	assertNoError(t, err)
 
 	defer deleteAWSObject(client, testFile, creds[AWSBucket])
@@ -74,20 +73,6 @@ func TestNewAWSUploaderErrors(t *testing.T) {
 		assertFailsWith(t, u, err, fmt.Sprintf(missingParameterErrMsg, param))
 	}
 
-}
-
-func assertFailsWith(t *testing.T, u interface{}, err error, msg string) {
-	t.Helper()
-
-	assertNil(t, u)
-
-	if err == nil {
-		t.Fatalf("error '%s' expected", msg)
-	}
-
-	if err.Error() != msg {
-		t.Fatalf("expected error '%s', but was '%v'", msg, err)
-	}
 }
 
 func getTestCredentials(t *testing.T) map[string]string {
@@ -134,16 +119,4 @@ func deleteAWSObject(client *s3.Client, key string, bucket string) {
 	if _, err := client.DeleteObject(context.TODO(), &di); err != nil {
 		log.Println(err)
 	}
-}
-
-func partialCopy(m map[string]string, omit string) map[string]string {
-	c := map[string]string{}
-
-	for k, v := range m {
-		if k != omit {
-			c[k] = v
-		}
-	}
-
-	return c
 }
