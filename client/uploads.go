@@ -295,6 +295,7 @@ func (u *MultiUpload) cancel(code string, message string) {
 		u.status.StatusCode = code
 		u.status.Message = message
 		u.status.EndTime = time.Now()
+		u.listener.uploadStatusUpdated(u.status)
 
 		return false
 	}()
@@ -304,33 +305,32 @@ func (u *MultiUpload) cancel(code string, message string) {
 
 		u.uploads.Remove(u.correlationID)
 
-		u.notifyStatusUpdate()
 	}
 }
 
 func (u *MultiUpload) uploadStarted(su *SingleUpload, info map[string]string) {
 	logger.Infof("upload %v started", su)
 
-	done := func() bool {
-		u.mutex.Lock()
-		defer u.mutex.Unlock()
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
 
-		if u.status != nil && u.status.State != StatePending {
-			return true // already started
-		}
-		u.status = &UploadStatus{}
-		u.status.CorrelationID = u.correlationID
-		u.status.State = StateUploading
-		u.status.StartTime = time.Now()
-		u.status.Progress = 0
-		u.status.Info = info
-
-		return false
-	}()
-
-	if !done {
-		u.notifyStatusUpdate()
+	if u.status != nil && u.status.State != StatePending {
+		return // already started
 	}
+	u.status = &UploadStatus{}
+	u.status.CorrelationID = u.correlationID
+	u.status.State = StateUploading
+	u.status.StartTime = time.Now()
+	u.status.Progress = 0
+	u.status.Info = info
+	u.status = &UploadStatus{}
+	u.status.CorrelationID = u.correlationID
+	u.status.State = StateUploading
+	u.status.StartTime = time.Now()
+	u.status.Progress = 0
+	u.status.Info = info
+
+	u.listener.uploadStatusUpdated(u.status)
 }
 
 func (u *MultiUpload) uploadFailed(su *SingleUpload, err error) {
@@ -349,6 +349,7 @@ func (u *MultiUpload) uploadFailed(su *SingleUpload, err error) {
 		u.status.State = StateFailed
 		u.status.EndTime = time.Now()
 		u.status.Message = err.Error()
+		u.listener.uploadStatusUpdated(u.status)
 
 		return false
 	}()
@@ -358,7 +359,6 @@ func (u *MultiUpload) uploadFailed(su *SingleUpload, err error) {
 
 		u.uploads.Remove(u.correlationID)
 
-		u.notifyStatusUpdate()
 	}
 }
 
@@ -367,12 +367,12 @@ func (u *MultiUpload) uploadFinished(su *SingleUpload) {
 
 	u.removeChild(su)
 
-	done, notify := func() (bool, bool) {
+	done := func() bool {
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
 
 		if u.status.finished() {
-			return false, false
+			return false
 		}
 
 		remaining := len(u.children)
@@ -386,15 +386,13 @@ func (u *MultiUpload) uploadFinished(su *SingleUpload) {
 			u.status.Progress = int(percents)
 		}
 
-		return remaining == 0, true
+		u.listener.uploadStatusUpdated(u.status)
+
+		return remaining == 0
 	}()
 
 	if done {
 		u.uploads.Remove(u.correlationID)
-	}
-
-	if notify {
-		u.notifyStatusUpdate()
 	}
 
 }
@@ -419,16 +417,6 @@ func (u *MultiUpload) cancelUploads() {
 		su.internalCancel()
 		logger.Infof("upload %v cancelled", su)
 	}
-}
-
-func (u *MultiUpload) notifyStatusUpdate() {
-	var s UploadStatus
-
-	u.mutex.RLock()
-	s = *u.status
-	u.mutex.RUnlock()
-
-	u.listener.uploadStatusUpdated(&s)
 }
 
 //******* END MultiUpload methods *******//
