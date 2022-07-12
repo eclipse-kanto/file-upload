@@ -80,7 +80,7 @@ func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
 	if err == nil {
 		logger.Debugf("azure blob upload response status code - %v", response.StatusCode)
 		if response.StatusCode != 201 {
-			return fmt.Errorf("unsuccessful response status code - %v", response.StatusCode)
+			return fmt.Errorf("unsuccessful upload, response status code - %v", response.StatusCode)
 		}
 	}
 	return err
