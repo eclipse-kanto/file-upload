@@ -33,7 +33,7 @@ func TestRingBufferBasic(t *testing.T) {
 
 	act := make([]interface{}, size)
 	for i := 0; i < size; i++ {
-		act[i] = r.get()
+		act[i], _ = r.get()
 	}
 
 	assertEquals(t, exp, act)
@@ -75,33 +75,38 @@ func TestRingBufferError(t *testing.T) {
 
 	r := newRingBuffer(size)
 
-	getFunc := func() {
-		r.get()
-	}
-
-	assertNoPanic(t, getFunc)
+	el, exists := r.get()
+	assertEquals(t, nil, el)
+	assertEquals(t, false, exists)
 
 	r.put(1)
 	r.get()
 
-	assertNoPanic(t, getFunc)
+	el, exists = r.get()
+	assertEquals(t, nil, el)
+	assertEquals(t, false, exists)
 
 	for i := 0; i < size; i++ {
 		r.put(i)
 	}
 
 	for i := 0; i < size; i++ {
-		r.get()
+		_, exists := r.get()
+		assertEquals(t, true, exists)
 	}
 
-	assertNoPanic(t, getFunc)
+	el, exists = r.get()
+	assertEquals(t, nil, el)
+	assertEquals(t, false, exists)
+
 }
 
 func getElements(r *ringBuffer) []interface{} {
 	e := make([]interface{}, 0)
 
 	for !r.empty() {
-		e = append(e, r.get())
+		el, _ := r.get()
+		e = append(e, el)
 	}
 
 	return e
@@ -113,16 +118,4 @@ func assertEquals(t *testing.T, exp interface{}, act interface{}) {
 	if !reflect.DeepEqual(exp, act) {
 		t.Fatalf("expected %v, but was %v", exp, act)
 	}
-}
-
-func assertNoPanic(t *testing.T, f func()) {
-	t.Helper()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("no panic is expected here, but there was - %v", r)
-		}
-	}()
-
-	f()
 }

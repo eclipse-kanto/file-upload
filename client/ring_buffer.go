@@ -11,8 +11,6 @@
 
 package client
 
-import "github.com/eclipse-kanto/file-upload/logger"
-
 // ringBuffer is a circular buffer of interface{} elements with fixed capacity.
 // Oldest elements are overwritten, when there is no more space in the buffer.
 type ringBuffer struct {
@@ -35,16 +33,16 @@ func (buf *ringBuffer) empty() bool {
 	return buf.start == buf.end
 }
 
-// get the element at the beginning of the buffer, log error if empty.
-func (buf *ringBuffer) get() interface{} {
+// get the element at the beginning of the buffer, if such exists.
+func (buf *ringBuffer) get() (interface{}, bool) {
 	if buf.empty() {
-		logger.Error("cannot get element from empty buffer")
+		return nil, false
 	}
 
 	e := buf.elements[buf.start]
 	buf.start = (buf.start + 1) % len(buf.elements)
 
-	return e
+	return e, true
 }
 
 // put elements at the end of the buffer,

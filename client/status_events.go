@@ -81,5 +81,5 @@ func (q *statusEventsConsumer) get() (interface{}, bool) {
 		return nil, false
 	}
 
-	return q.buf.get(), true
+	return q.buf.get()
 }
