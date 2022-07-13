@@ -24,8 +24,8 @@ func TestEventsQueueDelivery(t *testing.T) {
 	act := make([]interface{}, 0)
 	var wg sync.WaitGroup
 
-	queue := NewEventsQueue(count)
-	queue.Start(func(e interface{}) {
+	queue := newStatusEventsConsumer(count)
+	queue.start(func(e interface{}) {
 		act = append(act, e)
 		wg.Done()
 	})
@@ -34,7 +34,7 @@ func TestEventsQueueDelivery(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		wg.Add(1)
-		queue.Add(i)
+		queue.add(i)
 		exp[i] = i
 	}
 
@@ -44,14 +44,14 @@ func TestEventsQueueDelivery(t *testing.T) {
 }
 
 func TestEventsQueueBlocking(t *testing.T) {
-	queue := NewEventsQueue(3)
-	queue.Start(func(e interface{}) {
+	queue := newStatusEventsConsumer(3)
+	queue.start(func(e interface{}) {
 		time.Sleep(2 * time.Second)
 	})
 
 	start := time.Now()
 	for i := 0; i < 10; i++ {
-		queue.Add(i)
+		queue.add(i)
 	}
 
 	elapsed := time.Since(start)
@@ -63,20 +63,20 @@ func TestEventsQueueBlocking(t *testing.T) {
 
 func TestEventsQueueClose(t *testing.T) {
 	var counter int32
-	queue := NewEventsQueue(3)
-	queue.Start(func(e interface{}) {
+	queue := newStatusEventsConsumer(3)
+	queue.start(func(e interface{}) {
 		atomic.AddInt32(&counter, 1)
 	})
 
 	count := 5
 	for i := 0; i < count; i++ {
-		queue.Add("a")
+		queue.add("a")
 	}
 
-	queue.Stop()
+	queue.stop()
 
 	for i := 0; i < 10; i++ {
-		queue.Add("b")
+		queue.add("b")
 	}
 
 	time.Sleep(1 * time.Second)
@@ -92,8 +92,8 @@ func TestEventsQueueOrdering(t *testing.T) {
 	ls := make([]int, 0, count)
 
 	var wg sync.WaitGroup
-	queue := NewEventsQueue(count)
-	queue.Start(func(e interface{}) {
+	queue := newStatusEventsConsumer(count)
+	queue.start(func(e interface{}) {
 		ls = append(ls, e.(int))
 		wg.Done()
 	})
@@ -112,7 +112,7 @@ func TestEventsQueueOrdering(t *testing.T) {
 			defer m.Unlock()
 
 			counter++
-			queue.Add(counter)
+			queue.add(counter)
 		}()
 	}
 	latch.Add(-count)

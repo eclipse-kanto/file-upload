@@ -11,32 +11,34 @@
 
 package client
 
-// RingBuffer is a circular buffer of interface{} elements with fixed capacity.
+import "github.com/eclipse-kanto/file-upload/logger"
+
+// ringBuffer is a circular buffer of interface{} elements with fixed capacity.
 // Oldest elements are overwritten, when there is no more space in the buffer.
-type RingBuffer struct {
+type ringBuffer struct {
 	elements []interface{}
 	start    int
 	end      int
 }
 
-// NewRingBuffer creates a new RingBuffer with the given capacity
-func NewRingBuffer(capacity int) *RingBuffer {
-	buf := &RingBuffer{}
+// newRingBuffer creates a new ringBuffer with the given size.
+func newRingBuffer(size int) *ringBuffer {
+	buf := &ringBuffer{}
 
-	buf.elements = make([]interface{}, capacity+1) //+1 for sentinel
+	buf.elements = make([]interface{}, size+1)
 
 	return buf
 }
 
-// Empty returns true, if the buffer is empty
-func (buf *RingBuffer) Empty() bool {
+// empty returns true, if the buffer is empty.
+func (buf *ringBuffer) empty() bool {
 	return buf.start == buf.end
 }
 
-// Get the element at the head of the buffer, panic if empty
-func (buf *RingBuffer) Get() interface{} {
-	if buf.Empty() {
-		panic("getting from empty buffer")
+// get the element at the beginning of the buffer, log error if empty.
+func (buf *ringBuffer) get() interface{} {
+	if buf.empty() {
+		logger.Error("cannot get element from empty buffer")
 	}
 
 	e := buf.elements[buf.start]
@@ -45,9 +47,9 @@ func (buf *RingBuffer) Get() interface{} {
 	return e
 }
 
-// Put elements at the tail of the buffer,
-// potentially overwriting oldest elements and moving the head of the buffer
-func (buf *RingBuffer) Put(elements ...interface{}) {
+// put elements at the end of the buffer,
+// potentially overwriting oldest elements and moving the beginning of the buffer.
+func (buf *ringBuffer) put(elements ...interface{}) {
 	for _, e := range elements {
 		buf.elements[buf.end] = e
 

@@ -22,26 +22,26 @@ func TestRingBufferBasic(t *testing.T) {
 
 	t.Logf("TestRingBufferBasic with size %d", size)
 
-	r := NewRingBuffer(size)
+	r := newRingBuffer(size)
 
 	exp := make([]interface{}, size)
 	for i := 0; i < size; i++ {
 		exp[i] = i
 	}
 
-	r.Put(exp...)
+	r.put(exp...)
 
 	act := make([]interface{}, size)
 	for i := 0; i < size; i++ {
-		act[i] = r.Get()
+		act[i] = r.get()
 	}
 
 	assertEquals(t, exp, act)
-	if !r.Empty() {
+	if !r.empty() {
 		t.Fatalf("expected buffer to be empty")
 	}
 
-	r.Put(exp...)
+	r.put(exp...)
 	act = getElements(r)
 
 	assertEquals(t, exp, act)
@@ -53,14 +53,14 @@ func TestRingBufferOverwrite(t *testing.T) {
 
 	t.Logf("TestRingBufferOverwrite with size %d and overwrite %d", size, overwrite)
 
-	r := NewRingBuffer(size)
+	r := newRingBuffer(size)
 
 	src := make([]interface{}, size+overwrite)
 	for i := range src {
 		src[i] = i
 	}
 
-	r.Put(src...)
+	r.put(src...)
 
 	exp := src[overwrite:]
 	act := getElements(r)
@@ -68,40 +68,40 @@ func TestRingBufferOverwrite(t *testing.T) {
 	assertEquals(t, exp, act)
 }
 
-func TestRingBufferPanic(t *testing.T) {
+func TestRingBufferError(t *testing.T) {
 	size := rand.Intn(100) + 1
 
 	t.Logf("TestRingBufferPanic with size %d", size)
 
-	r := NewRingBuffer(size)
+	r := newRingBuffer(size)
 
 	getFunc := func() {
-		r.Get()
+		r.get()
 	}
 
-	assertPanic(t, getFunc)
+	assertNoPanic(t, getFunc)
 
-	r.Put(1)
-	r.Get()
+	r.put(1)
+	r.get()
 
-	assertPanic(t, getFunc)
+	assertNoPanic(t, getFunc)
 
 	for i := 0; i < size; i++ {
-		r.Put(i)
+		r.put(i)
 	}
 
 	for i := 0; i < size; i++ {
-		r.Get()
+		r.get()
 	}
 
-	assertPanic(t, getFunc)
+	assertNoPanic(t, getFunc)
 }
 
-func getElements(r *RingBuffer) []interface{} {
+func getElements(r *ringBuffer) []interface{} {
 	e := make([]interface{}, 0)
 
-	for !r.Empty() {
-		e = append(e, r.Get())
+	for !r.empty() {
+		e = append(e, r.get())
 	}
 
 	return e
@@ -115,12 +115,12 @@ func assertEquals(t *testing.T, exp interface{}, act interface{}) {
 	}
 }
 
-func assertPanic(t *testing.T, f func()) {
+func assertNoPanic(t *testing.T, f func()) {
 	t.Helper()
 
 	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("panic expected, but there was none")
+		if r := recover(); r != nil {
+			t.Fatalf("no panic is expected here, but there was - %v", r)
 		}
 	}()
 

@@ -84,7 +84,7 @@ type AutoUploadable struct {
 
 	uidCounter int64
 
-	statusQueue *EventsQueue
+	statusQueue *statusEventsConsumer
 
 	uploads *Uploads
 
@@ -153,7 +153,7 @@ func NewAutoUploadable(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploa
 	result.cfg = uploadableCfg
 	result.uidCounter = time.Now().Unix()
 
-	result.statusQueue = NewEventsQueue(100)
+	result.statusQueue = newStatusEventsConsumer(100)
 
 	result.state.Active = uploadableCfg.Active
 	result.state.StartTime = uploadableCfg.ActiveFrom.Time
@@ -172,7 +172,7 @@ func NewAutoUploadable(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploa
 
 // Connect AutoUploadable to the Ditto endpoint
 func (u *AutoUploadable) Connect() error {
-	u.statusQueue.Start(func(e interface{}) {
+	u.statusQueue.start(func(e interface{}) {
 		u.UpdateProperty(lastUploadProperty, e)
 	})
 
@@ -181,7 +181,7 @@ func (u *AutoUploadable) Connect() error {
 
 // Disconnect AutoUploadable from the Ditto endpoint and clean up used resources
 func (u *AutoUploadable) Disconnect() {
-	u.statusQueue.Stop()
+	u.statusQueue.stop()
 
 	u.client.Unsubscribe()
 
@@ -329,7 +329,7 @@ func (u *AutoUploadable) uploadStatusUpdated(status *UploadStatus) {
 	}()
 
 	s := *status
-	u.statusQueue.Add(s)
+	u.statusQueue.add(s)
 }
 
 // ******* END UploadStatusListener methods *******//

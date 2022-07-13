@@ -15,32 +15,32 @@ import (
 	"sync"
 )
 
-// EventsQueue is a bounded cyclic events queue, safe for concurrent use.
+// statusEventsConsumer uses a bounded cyclic events queue, safe for concurrent use.
 // When capacity is reached, oldest events in the queue are replaced by newer ones.
-type EventsQueue struct {
-	buf *RingBuffer
+type statusEventsConsumer struct {
+	buf *ringBuffer
 
 	closed bool
 	cond   *sync.Cond
 }
 
-// NewEventsQueue constructs a new EventsQueue with given capacity
-func NewEventsQueue(size int) *EventsQueue {
-	queue := &EventsQueue{}
+// newStatusEventsConsumer constructs a new statusEventsConsumer with the given size.
+func newStatusEventsConsumer(size int) *statusEventsConsumer {
+	consumer := &statusEventsConsumer{}
 
-	queue.buf = NewRingBuffer(size)
-	queue.cond = sync.NewCond(&sync.Mutex{})
+	consumer.buf = newRingBuffer(size)
+	consumer.cond = sync.NewCond(&sync.Mutex{})
 
-	return queue
+	return consumer
 }
 
-// Start event delivery loop
-func (q *EventsQueue) Start(consume func(e interface{})) {
+// start event delivery loop.
+func (q *statusEventsConsumer) start(consume func(e interface{})) {
 	go q.eventLoop(consume)
 }
 
-// Stop event delivery loop
-func (q *EventsQueue) Stop() {
+// stop event delivery loop.
+func (q *statusEventsConsumer) stop() {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -49,17 +49,17 @@ func (q *EventsQueue) Stop() {
 	q.cond.Broadcast()
 }
 
-// Add new event to the queue.
-func (q *EventsQueue) Add(e interface{}) {
+// add new event to the queue.
+func (q *statusEventsConsumer) add(e interface{}) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
-	q.buf.Put(e)
+	q.buf.put(e)
 
 	q.cond.Broadcast()
 }
 
-func (q *EventsQueue) eventLoop(consume func(e interface{})) {
+func (q *statusEventsConsumer) eventLoop(consume func(e interface{})) {
 	for {
 		if e, ok := q.get(); ok {
 			consume(e)
@@ -69,11 +69,11 @@ func (q *EventsQueue) eventLoop(consume func(e interface{})) {
 	}
 }
 
-func (q *EventsQueue) get() (interface{}, bool) {
+func (q *statusEventsConsumer) get() (interface{}, bool) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
-	for q.buf.Empty() && !q.closed {
+	for q.buf.empty() && !q.closed {
 		q.cond.Wait()
 	}
 
@@ -81,5 +81,5 @@ func (q *EventsQueue) get() (interface{}, bool) {
 		return nil, false
 	}
 
-	return q.buf.Get(), true
+	return q.buf.get(), true
 }
