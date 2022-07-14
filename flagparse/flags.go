@@ -76,13 +76,13 @@ func ParseFlags(version string) (*UploadFileConfig, ConfigFileMissing) {
 
 	if *dumpFiles {
 		if config.Files == "" {
-			fmt.Println("no glob filter provided!")
+			fmt.Println("No glob filter provided!")
 		} else {
 			files, err := filepath.Glob(config.Files)
 			if err != nil {
 				log.Fatalln(err)
 			}
-			fmt.Printf("files matching glob filter '%s': %v\n", config.Files, files)
+			fmt.Printf("Files matching glob filter '%s': %v\n", config.Files, files)
 		}
 	}
 
@@ -106,8 +106,8 @@ func ApplyFlags(config interface{}, flagsConfig interface{}) {
 }
 
 //InitFlagVars parses the 'cfg' structure and defines flag variables for its fields.
-//The 'cfg' parameter should be a pointer to structure. Flag names are taken from field names (with the first letter lowercased).
-//Flag descriptions are taken from 'descr' field tags, default values are taken from 'def' fielt tags
+//The 'cfg' parameter should be a pointer to structure. Flag names are taken from field names (with the first letter lower cased).
+//Flag descriptions are taken from 'descr' field tags, default values are taken from 'def' field tags
 func InitFlagVars(cfg interface{}, names map[string]string, skip map[string]bool) {
 	initConfigValues(reflect.ValueOf(cfg).Elem(), names, skip, true)
 }
@@ -119,7 +119,7 @@ func LoadConfigFromFile(configFile string, cfg interface{}, names map[string]str
 
 	var warn ConfigFileMissing
 
-	// Load configuration file (if posible)
+	// Load configuration file (if possible)
 	if len(configFile) > 0 {
 		err := LoadJSON(configFile, cfg)
 
@@ -172,7 +172,7 @@ func initConfigValues(valueOfConfig reflect.Value, names map[string]string, skip
 		case bool:
 			defaultBoolValue, err := strconv.ParseBool(defaultValue)
 			if err != nil {
-				log.Println(fmt.Sprintf("Error parsing boolean argument %v with value %v", fieldType.Name, defaultValue))
+				log.Printf("Error parsing boolean argument %v with value %v", fieldType.Name, defaultValue)
 			}
 			if flagIt {
 				flag.BoolVar(pointer.(*bool), argName, defaultBoolValue, description)
@@ -182,7 +182,7 @@ func initConfigValues(valueOfConfig reflect.Value, names map[string]string, skip
 		case int:
 			defaultIntValue, err := strconv.Atoi(defaultValue)
 			if err != nil {
-				log.Println(fmt.Sprintf("Error parsing integer argument %v with value %v", fieldType.Name, defaultValue))
+				log.Printf("Error parsing integer argument %v with value %v", fieldType.Name, defaultValue)
 			}
 			if flagIt {
 				flag.IntVar(pointer.(*int), argName, defaultIntValue, description)
@@ -198,7 +198,7 @@ func initConfigValues(valueOfConfig reflect.Value, names map[string]string, skip
 				} else if err := v.Set(defaultValue); err == nil {
 					fieldValue.Set(reflect.ValueOf(v).Elem())
 				} else {
-					log.Println(fmt.Sprintf("Error parsing argument %v with value %v - %v", fieldType.Name, defaultValue, err))
+					log.Printf("Error parsing argument %v with value %v - %v", fieldType.Name, defaultValue, err)
 				}
 			} else if fieldType.Type.Kind() == reflect.Struct {
 				initConfigValues(fieldValue, names, skip, flagIt)
@@ -211,13 +211,13 @@ func getReplacer(names map[string]string) *strings.Replacer {
 	if names == nil {
 		return nil
 	}
-	oldnew := make([]string, 0, len(names)*2)
+	oldNew := make([]string, 0, len(names)*2)
 	for k, v := range names {
-		oldnew = append(oldnew, "{"+k+"}")
-		oldnew = append(oldnew, v)
+		oldNew = append(oldNew, "{"+k+"}")
+		oldNew = append(oldNew, v)
 	}
 
-	return strings.NewReplacer(oldnew...)
+	return strings.NewReplacer(oldNew...)
 }
 
 //InitConfigDefaults sets the default field values of the passed config.
@@ -234,13 +234,6 @@ func LoadJSON(file string, v interface{}) error {
 	}
 
 	return err
-}
-
-func copyConfigData(sourceConfig interface{}, targetConfig interface{}) {
-	source := reflect.ValueOf(sourceConfig).Elem()
-	target := reflect.ValueOf(targetConfig).Elem()
-
-	target.Set(source)
 }
 
 //ToFlagName converts config structure field name to command-line flag name
