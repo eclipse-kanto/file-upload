@@ -15,14 +15,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/eclipse-kanto/file-upload/uploaders"
+)
+
+const (
+	minFileSize = 20000 // strings
+	maxFileSize = 60000 // strings
 )
 
 func TestStatusFinished(t *testing.T) {
@@ -53,14 +60,25 @@ type TestStatusListener struct {
 	finished bool
 
 	status UploadStatus
+
+	lastUploadProgress                int
+	invalidUploadProgressErrorMessage string
 }
 
 func NewTestStatusListener(t *testing.T) *TestStatusListener {
-	return &TestStatusListener{t, sync.NewCond(&sync.Mutex{}), false, UploadStatus{}}
+	return &TestStatusListener{t, sync.NewCond(&sync.Mutex{}), false, UploadStatus{}, 0, ""}
 }
 
 func (l *TestStatusListener) uploadStatusUpdated(s *UploadStatus) {
 	l.t.Logf("%+v\n", s)
+
+	if s.Progress < 0 || s.Progress > 100 {
+		l.invalidUploadProgressErrorMessage = fmt.Sprintf("upload progress must be between 0 and 100, but is %d", s.Progress)
+	}
+	if s.Progress < l.lastUploadProgress {
+		l.invalidUploadProgressErrorMessage = fmt.Sprintf("upload progress value decreased(%d -> %d)", l.lastUploadProgress, s.Progress)
+	}
+	l.lastUploadProgress = s.Progress
 
 	if s.finished() {
 		l.cond.L.Lock()
@@ -145,7 +163,7 @@ func TestRemoveParent(t *testing.T) {
 }
 
 func TestSuccess(t *testing.T) {
-	files := createTestFiles(t, 3)
+	files := createTestFiles(t, 3, false, false)
 	defer cleanFiles(files)
 
 	server := startTestServer(t, 0)
@@ -174,7 +192,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	files := createTestFiles(t, 5)
+	files := createTestFiles(t, 5, false, false)
 	defer cleanFiles(files)
 
 	us := NewUploads()
@@ -197,7 +215,7 @@ func TestFailure(t *testing.T) {
 
 func TestCancel(t *testing.T) {
 	const filesCount = 5
-	files := createTestFiles(t, filesCount)
+	files := createTestFiles(t, filesCount, false, false)
 	defer cleanFiles(files)
 
 	server := startTestServer(t, 50*time.Millisecond)
@@ -231,7 +249,7 @@ func TestCancel(t *testing.T) {
 }
 
 func TestGracefulShutdown(t *testing.T) {
-	files := createTestFiles(t, 1)
+	files := createTestFiles(t, 1, false, false)
 	defer cleanFiles(files)
 
 	delay := 1 * time.Second
@@ -310,7 +328,8 @@ func startUploads(t *testing.T, us *Uploads, ids []string, url string) {
 	}
 }
 
-func createTestFiles(t *testing.T, count int) []*os.File {
+func createTestFiles(t *testing.T, count int, randomSizedMediumFiles bool,
+	emptyFiles bool) []*os.File {
 	tmp := make([]*os.File, count)
 
 	defer func() { //clean-up on error
@@ -319,7 +338,15 @@ func createTestFiles(t *testing.T, count int) []*os.File {
 
 	for i := 0; i < count; i++ {
 		if f, err := os.CreateTemp("./", "test"); err == nil {
-			if _, err := f.WriteString(fmt.Sprintf("test %d", i+1)); err != nil {
+			data := fmt.Sprintf("test %d", i+1)
+			if emptyFiles {
+				data = ""
+			} else if randomSizedMediumFiles {
+				rand.Seed(time.Now().UnixNano())
+				data = strings.Repeat(data, rand.Intn(maxFileSize-minFileSize+1)+minFileSize)
+			}
+
+			if _, err := f.WriteString(data); err != nil {
 				t.Fatal(err)
 			}
 			tmp[i] = f

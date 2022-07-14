@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"testing"
 
@@ -31,7 +30,8 @@ func TestAzureUploadWithChecksum(t *testing.T) {
 }
 
 func testAzureUpload(t *testing.T, useChecksum bool) {
-	options := getAzureTestOptions(t)
+	options, err := GetAzureTestOptions(t)
+	assertNoError(t, err)
 	u, err := NewAzureUploader(options)
 	assertNoError(t, err)
 
@@ -39,13 +39,13 @@ func testAzureUpload(t *testing.T, useChecksum bool) {
 	assertNoError(t, err)
 	defer f.Close()
 
-	err = u.UploadFile(f, useChecksum)
+	err = u.UploadFile(f, useChecksum, nil)
 	assertNoError(t, err)
 
 	urlStr := fmt.Sprint(options[AzureEndpoint], options[AzureContainerName], "/", testFile, "?", options[AzureSAS])
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(urlStr, &clientOptions)
-	defer deleteBlob(blockBlobClient)
+	defer deleteBlob(t, blockBlobClient)
 	assertNoError(t, err)
 
 	optionsDownload := azblob.DownloadBlobOptions{}
@@ -62,7 +62,8 @@ func testAzureUpload(t *testing.T, useChecksum bool) {
 }
 
 func TestNewAzureUploaderErrors(t *testing.T) {
-	options := getAzureTestOptions(t)
+	options, err := GetAzureTestOptions(t)
+	assertNoError(t, err)
 	requiredParams := []string{AzureContainerName, AzureEndpoint, AzureSAS}
 
 	for _, param := range requiredParams {
@@ -73,54 +74,12 @@ func TestNewAzureUploaderErrors(t *testing.T) {
 
 }
 
-func deleteBlob(blockBlobClient azblob.BlockBlobClient) {
+func deleteBlob(t *testing.T, blockBlobClient azblob.BlockBlobClient) {
+	t.Helper()
+
 	optons := azblob.DeleteBlobOptions{}
 	_, err := blockBlobClient.Delete(context.Background(), &optons)
 	if err != nil {
-		log.Println(err)
-	}
-}
-
-func getAzureTestCredentials(t *testing.T) AzureTestCredentials {
-	t.Helper()
-
-	accountNameKey, containerNameKey, tenantIDKey, clientIDKey, clientSecretKey :=
-		"AZURE_ACCOUNT_NAME", "AZURE_CONTAINER_NAME", "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"
-	mapping := map[string]string{
-		accountNameKey:   "",
-		containerNameKey: "",
-		tenantIDKey:      "",
-		clientIDKey:      "",
-		clientSecretKey:  "",
-	}
-
-	for key := range mapping {
-		env := os.Getenv(key)
-		if env == "" {
-			t.Skipf("environment variable '%s' not set", key)
-		} else {
-			mapping[key] = env
-		}
-	}
-
-	return AzureTestCredentials{
-		accountName:   mapping[accountNameKey],
-		containerName: mapping[containerNameKey],
-		tenantID:      mapping[tenantIDKey],
-		clientID:      mapping[clientIDKey],
-		clientSecret:  mapping[clientSecretKey],
-	}
-}
-
-func getAzureTestOptions(t *testing.T) map[string]string {
-	t.Helper()
-
-	azureTestCredentials := getAzureTestCredentials(t)
-	azureSAS, err := getOneHourAzureSAS(t, azureTestCredentials)
-	assertNoError(t, err)
-	return map[string]string{
-		AzureEndpoint:      fmt.Sprintf(azureURLPattern, azureTestCredentials.accountName),
-		AzureSAS:           azureSAS,
-		AzureContainerName: azureTestCredentials.containerName,
+		t.Log(err)
 	}
 }

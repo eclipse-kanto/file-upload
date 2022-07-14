@@ -38,7 +38,7 @@ const missingParameterErrMsg = "required parameter '%s' missing or empty"
 
 // Uploader interface wraps the generic UploadFile method
 type Uploader interface {
-	UploadFile(file *os.File, useChecksum bool) error
+	UploadFile(file *os.File, useChecksum bool, listener func(bytesTransferred int64)) error
 }
 
 // HTTPUploader handles generic HTTP uploads
@@ -72,7 +72,7 @@ func NewHTTPUploader(options map[string]string) (Uploader, error) {
 }
 
 // UploadFile performs generic HTTP file upload
-func (u *HTTPUploader) UploadFile(file *os.File, useChecksum bool) error {
+func (u *HTTPUploader) UploadFile(file *os.File, useChecksum bool, listener func(bytesTransferred int64)) error {
 	stats, err := file.Stat()
 	if err != nil {
 		return err

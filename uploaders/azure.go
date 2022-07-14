@@ -57,7 +57,7 @@ func NewAzureUploader(options map[string]string) (Uploader, error) {
 }
 
 // UploadFile performs Azure file upload
-func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
+func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool, listener func(bytesTransferred int64)) error {
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(fmt.Sprint(u.endpoint, u.container, "/", filepath.Base(file.Name()), "?", u.sas), &clientOptions)
 	if err != nil {
@@ -73,7 +73,9 @@ func (u *AzureUploader) UploadFile(file *os.File, useChecksum bool) error {
 		blobHTTPHeaders.BlobContentMD5 = []byte(md5)
 	}
 	options := azblob.HighLevelUploadToBlockBlobOption{
-		HTTPHeaders: blobHTTPHeaders,
+		HTTPHeaders:             blobHTTPHeaders,
+		Progress:                listener,
+		TransactionalContentMD5: &blobHTTPHeaders.BlobContentMD5,
 	}
 
 	response, err := blockBlobClient.UploadFileToBlockBlob(context.Background(), file, options) // perform upload

@@ -97,7 +97,7 @@ func NewAWSUploader(options map[string]string) (Uploader, error) {
 }
 
 // UploadFile performs AWS S3 file upload
-func (u *AWSUploader) UploadFile(file *os.File, useChecksum bool) error {
+func (u *AWSUploader) UploadFile(file *os.File, useChecksum bool, listener func(bytesTransferred int64)) error {
 	name := u.objectKey
 	if u.objectKey == "" {
 		name = file.Name()
