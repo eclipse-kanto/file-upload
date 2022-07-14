@@ -46,7 +46,7 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 	assertNoError(t, err)
 	defer f.Close()
 
-	err = u.UploadFile(f, useChecksum)
+	err = u.UploadFile(f, useChecksum, nil)
 	assertNoError(t, err)
 
 	defer deleteAWSObject(client, testFile, creds[AWSBucket])

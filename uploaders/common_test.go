@@ -160,7 +160,7 @@ func testHTTPUploadFailureAddr(t *testing.T, addr string) {
 	u, err := NewHTTPUploader(options)
 	assertNoError(t, err)
 
-	err = u.UploadFile(f, false)
+	err = u.UploadFile(f, false, nil)
 	assertError(t, err)
 }
 
@@ -187,7 +187,7 @@ func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool) {
 	assertNoError(t, err)
 
 	md5 := getChecksum(t, f, useChecksum)
-	err = u.UploadFile(f, true)
+	err = u.UploadFile(f, true, nil)
 	assertNoError(t, err)
 
 	assertNoError(t, handler.err)
