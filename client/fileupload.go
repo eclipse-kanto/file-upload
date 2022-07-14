@@ -20,6 +20,8 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
+const uploadFilesProperty = "upload.files"
+
 // FileUpload uses the AutoUploadable feature to implement generic file upload.
 // AutoUploadable ss performing all communication with the backend, FileUpload only specifies the files to be uploaded.
 type FileUpload struct {
@@ -59,6 +61,16 @@ func (fu *FileUpload) Disconnect() {
 // DoTrigger triggers file upload operation.
 // Can be invoked from the backend or from periodic upload tick
 func (fu *FileUpload) DoTrigger(correlationID string, options map[string]string) error {
+	glob, ok := options[uploadFilesProperty]
+
+	if !ok {
+		glob = fu.filesGlob
+	}
+
+	if glob == "" {
+		return errors.New("upload files not specified")
+	}
+
 	single := fu.uploadable.cfg.SingleUpload
 	if options["force"] == "true" {
 		single = false
@@ -68,7 +80,7 @@ func (fu *FileUpload) DoTrigger(correlationID string, options map[string]string)
 		return errors.New("there is an ongoing upload -  set the 'force' option to 'true' to force trigger the upload")
 	}
 
-	files, err := filepath.Glob(fu.filesGlob)
+	files, err := filepath.Glob(glob)
 	if err != nil {
 		logger.Errorf("failed to trigger upload %s: %v", correlationID, err)
 

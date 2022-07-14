@@ -85,16 +85,17 @@ func ParseFlags(version string) (*client.BrokerConfig, *client.UploadableConfig,
 
 	warn := applyConfigurationFile(*configFile, brokerConfig, uploadConfig, logConfig, &filesGlob)
 	ApplyFlags(config, brokerConfig, uploadConfig, logConfig, &filesGlob)
-	if filesGlob == "" {
-		log.Fatalln("Use '-files' command flag to specify glob pattern for the files to upload!")
-	}
 
 	if *dumpFiles {
-		files, err := filepath.Glob(filesGlob)
-		if err != nil {
-			log.Fatalln(err)
+		if config.Files == "" {
+			fmt.Println("No glob filter provided!")
+		} else {
+			files, err := filepath.Glob(config.Files)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			fmt.Printf("Files matching glob filter '%s': %v\n", config.Files, files)
 		}
-		fmt.Printf("Files matching glob filter '%s': %v\n", filesGlob, files)
 	}
 
 	return brokerConfig, uploadConfig, logConfig, filesGlob, warn
