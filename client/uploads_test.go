@@ -163,7 +163,7 @@ func TestRemoveParent(t *testing.T) {
 }
 
 func TestSuccess(t *testing.T) {
-	files := createTestFiles(t, 3, false)
+	files := createTestFiles(t, 3, false, false)
 	defer cleanFiles(files)
 
 	server := startTestServer(t, 0)
@@ -192,7 +192,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	files := createTestFiles(t, 5, false)
+	files := createTestFiles(t, 5, false, false)
 	defer cleanFiles(files)
 
 	us := NewUploads()
@@ -215,7 +215,7 @@ func TestFailure(t *testing.T) {
 
 func TestCancel(t *testing.T) {
 	const filesCount = 5
-	files := createTestFiles(t, filesCount, false)
+	files := createTestFiles(t, filesCount, false, false)
 	defer cleanFiles(files)
 
 	server := startTestServer(t, 50*time.Millisecond)
@@ -249,7 +249,7 @@ func TestCancel(t *testing.T) {
 }
 
 func TestGracefulShutdown(t *testing.T) {
-	files := createTestFiles(t, 1, false)
+	files := createTestFiles(t, 1, false, false)
 	defer cleanFiles(files)
 
 	delay := 1 * time.Second
@@ -328,7 +328,8 @@ func startUploads(t *testing.T, us *Uploads, ids []string, url string) {
 	}
 }
 
-func createTestFiles(t *testing.T, count int, randomSizedMediumFiles bool) []*os.File {
+func createTestFiles(t *testing.T, count int, randomSizedMediumFiles bool,
+	emptyFiles bool) []*os.File {
 	tmp := make([]*os.File, count)
 
 	defer func() { //clean-up on error
@@ -338,10 +339,13 @@ func createTestFiles(t *testing.T, count int, randomSizedMediumFiles bool) []*os
 	for i := 0; i < count; i++ {
 		if f, err := os.CreateTemp("./", "test"); err == nil {
 			data := fmt.Sprintf("test %d", i+1)
-			if randomSizedMediumFiles {
+			if emptyFiles {
+				data = ""
+			} else if randomSizedMediumFiles {
 				rand.Seed(time.Now().UnixNano())
 				data = strings.Repeat(data, rand.Intn(maxFileSize-minFileSize+1)+minFileSize)
 			}
+
 			if _, err := f.WriteString(data); err != nil {
 				t.Fatal(err)
 			}

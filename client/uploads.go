@@ -41,6 +41,9 @@ const InfoPrefix = "info."
 // StorageProvider hold the name of the storage provider 'start' operation option
 const StorageProvider = "storage.provider"
 
+// fineGrainedUploadProgressNotSupported indicates, that at least file size cannot be determined and upload progress will be based on file count only
+const fineGrainedUploadProgressNotSupported = -1
+
 // Upload represents single or multi-file upload
 type Upload interface {
 	start(options map[string]string) error
@@ -65,7 +68,7 @@ type MultiUpload struct {
 	mutex sync.RWMutex
 
 	totalBytesTransferred int64
-	totalSizeBytes        int64 // -1 if there is an error, retrieving at least one file size(file count progress report will be used in such case)
+	totalSizeBytes        int64 // -1(fineGrainedUploadProgressNotSupported) if there is an error, retrieving at least one file size(file count progress report will be used in such case)
 }
 
 // SingleUpload represents a single file upload
@@ -146,11 +149,11 @@ func (us *Uploads) AddMulti(correlationID string, paths []string, deleteUploaded
 
 		r[i] = id
 
-		if m.totalSizeBytes != -1 {
+		if m.totalSizeBytes != fineGrainedUploadProgressNotSupported {
 			fileInfo, err := os.Stat(path)
 			if err != nil {
 				logger.Warningf("cannot get size of file %s", path)
-				m.totalSizeBytes = -1 // will use progress report, based on number of uploaded files
+				m.totalSizeBytes = fineGrainedUploadProgressNotSupported // will use progress report, based on number of uploaded files
 			} else {
 				size := fileInfo.Size()
 				us.mutex.Lock()
@@ -295,20 +298,22 @@ func (u *MultiUpload) getChildrenIDs() []string {
 }
 
 func (u *MultiUpload) changeProgress(newBytesTransferred int64) {
-	var notify bool
-
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
-	if u.totalSizeBytes > 0 {
+	if u.totalSizeBytes == 0 { //an empty file set, nothing to change
+		if newBytesTransferred != 0 {
+			logger.Warningf("reporting non-zero transferred bytes(%d) on an empty file set", newBytesTransferred)
+		}
+	} else if u.totalSizeBytes != fineGrainedUploadProgressNotSupported {
 		u.totalBytesTransferred += newBytesTransferred
 		newProgress := int((100 * float64(u.totalBytesTransferred)) / float64(u.totalSizeBytes))
-		notify = newProgress != u.status.Progress
+		notify := newProgress != u.status.Progress
 		u.status.Progress = newProgress
+		if notify {
+			u.listener.uploadStatusUpdated(u.status)
+		}
 	}
 
-	if notify {
-		u.listener.uploadStatusUpdated(u.status)
-	}
 }
 
 func (u *MultiUpload) start(options map[string]string) error {
@@ -417,8 +422,8 @@ func (u *MultiUpload) uploadFinished(su *SingleUpload) {
 			u.status.Progress = 100
 			u.status.State = StateSuccess
 			u.status.EndTime = time.Now()
-		} else if u.totalSizeBytes > 0 {
-			u.totalBytesTransferred += su.totalSizeBytes - su.bytesTransferred
+		} else if u.totalSizeBytes != fineGrainedUploadProgressNotSupported && u.totalSizeBytes != 0 {
+			u.totalBytesTransferred += su.totalSizeBytes - su.bytesTransferred // ensures that the total number of transferred bytes for a single file will be exactly its size
 			u.status.Progress = int(100 * (float64(u.totalBytesTransferred) / float64(u.totalSizeBytes)))
 		} else {
 			uploaded := float32(u.totalCount - remaining)
@@ -484,8 +489,12 @@ func (u *SingleUpload) start(options map[string]string) error {
 	u.parent.uploadStarted(u, info)
 
 	progressFunc := func(bytesTransferred int64) {
-		if u.parent.totalSizeBytes <= 0 {
+		if u.parent.totalSizeBytes == fineGrainedUploadProgressNotSupported {
 			return // unsupported
+		}
+		if u.totalSizeBytes == 0 && bytesTransferred != 0 {
+			logger.Warningf("reporting non-zero transferred bytes(%d) on an empty file(%v)", bytesTransferred, u.file)
+			return
 		}
 		if u.bytesTransferred != bytesTransferred {
 			change := bytesTransferred - u.bytesTransferred

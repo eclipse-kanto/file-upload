@@ -18,8 +18,16 @@ import (
 	"github.com/eclipse-kanto/file-upload/uploaders"
 )
 
-func TestAzureUpload(t *testing.T) {
-	files := createTestFiles(t, 12, true)
+func TestAzureUploadRandomFiles(t *testing.T) {
+	testAzureUpload(t, false)
+}
+
+func TestAzureUploadEmptyFiles(t *testing.T) {
+	testAzureUpload(t, true)
+}
+
+func testAzureUpload(t *testing.T, emptyFiles bool) {
+	files := createTestFiles(t, 12, true, emptyFiles)
 	defer cleanFiles(files)
 
 	options, err := uploaders.GetAzureTestOptions(t)
@@ -39,7 +47,7 @@ func TestAzureUpload(t *testing.T) {
 			}
 			defer uploaders.DeleteUploadedBlob(t, options, filepath.Base(paths[ind]))
 		} else {
-			t.Logf("upload with ID '%s' not found", id)
+			t.Fatalf("upload with ID '%s' not found", id)
 		}
 	}
 
