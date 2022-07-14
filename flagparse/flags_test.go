@@ -12,14 +12,11 @@
 package flags_test
 
 import (
-	"flag"
 	"os"
 	"testing"
 
-	"github.com/eclipse-kanto/file-upload/client"
 	flags "github.com/eclipse-kanto/file-upload/flagparse"
 	. "github.com/eclipse-kanto/file-upload/flagparsetest"
-	"github.com/eclipse-kanto/file-upload/logger"
 )
 
 const (
@@ -27,87 +24,81 @@ const (
 )
 
 var (
-	testFileConfig *flags.UploadFileConfig = flags.NewUploadFileConfig()
+	testConfig flags.UploadFileConfig = flags.UploadFileConfig{}
 )
 
 func TestMain(m *testing.M) {
-	OriginalArgs = os.Args
-	OriginalFlags = *flag.CommandLine
+	originalArgs := os.Args
 
-	flags.LoadJSON(testConfigFile, &testFileConfig)
+	flags.LoadJSON(testConfigFile, &testConfig)
 	code := m.Run()
 
-	os.Args = OriginalArgs
+	os.Args = originalArgs
 	os.Exit(code)
 }
 
 func TestOnlyFilesGlob(t *testing.T) {
 	ResetFlags()
 
-	SetConfigsDefaults()
 	filesGlob := "test"
-	PassArgs(&Arg{Name: flags.Files, Value: filesGlob})
+	PassArgs(Arg{Name: flags.Files, Value: filesGlob})
 
-	expected := &ParsedFlags{
-		BrokerConfig: &DefaultBrokerConfig, UploadConfig: &DefaultUploadConfig,
-		LogConfig: &DefaultLogConfig, FilesGlob: filesGlob}
+	expected := getDefaultConfig()
 
-	parseAndVerify(expected, t, !ExpectWarn)
+	parseAndVerify(expected, t, false)
 }
 
 func TestCliArgs(t *testing.T) {
 	ResetFlags()
 
-	SetTestFullUploadArgs(testFileConfig, AddDefaultsTrue, t)
-	PassArgs(TestCliFullArgs...)
-	parseAndVerify(FullUploadParsedFlags, t, !ExpectWarn)
+	args := ConfigToArgs(t, &testConfig, nil, true)
+	PassArgs(args...)
+	parseAndVerify(&testConfig, t, false)
 }
 
 func TestConfig(t *testing.T) {
 	ResetFlags()
 
-	SetTestFullUploadArgs(testFileConfig, AddDefaultsTrue, t)
-	PassArgs(&Arg{Name: flags.ConfigFile, Value: testConfigFile})
-	parseAndVerify(FullUploadParsedFlags, t, !ExpectWarn)
+	PassArgs(Arg{Name: flags.ConfigFile, Value: testConfigFile})
+	parseAndVerify(&testConfig, t, false)
 }
 
 func TestConfigAndCliArgs(t *testing.T) {
 	ResetFlags()
 
-	FullUploadParsedFlags = &ParsedFlags{BrokerConfig: &client.BrokerConfig{}, UploadConfig: &client.UploadableConfig{}, LogConfig: &logger.LogConfig{}}
-	FullUploadParsedFlags.FilesGlob = testFileConfig.Files
+	config := &flags.UploadFileConfig{}
+	config.Files = testConfig.Files
 
-	PassArgs(append(FullUploadParsedFlags.ToArgs(true, t), &Arg{Name: flags.ConfigFile, Value: testConfigFile})...)
-	parseAndVerify(FullUploadParsedFlags, t, !ExpectWarn)
+	args := ConfigToArgs(t, config, nil, true)
+	args = append(args, Arg{Name: flags.ConfigFile, Value: testConfigFile})
+
+	PassArgs(args...)
+	parseAndVerify(config, t, false)
 }
 
 func TestConfigFileNotExist(t *testing.T) {
 	ResetFlags()
 
-	SetConfigsDefaults()
 	filesGlob := "test"
-	PassArgs(&Arg{Name: flags.ConfigFile, Value: "missingFile"}, &Arg{Name: flags.Files, Value: filesGlob})
+	PassArgs(Arg{Name: flags.ConfigFile, Value: "missingFile"}, Arg{Name: flags.Files, Value: filesGlob})
 
-	expected := &ParsedFlags{
-		BrokerConfig: &DefaultBrokerConfig, UploadConfig: &DefaultUploadConfig,
-		LogConfig: &DefaultLogConfig, FilesGlob: filesGlob}
+	expected := getDefaultConfig()
 
-	parseAndVerify(expected, t, ExpectWarn)
+	parseAndVerify(expected, t, true)
 }
 
-func SetConfigsDefaults() {
-	DefaultFileConfig := flags.GetUploadFileConfigDefaults()
-	flags.SetBrokerConfig(DefaultFileConfig, &DefaultBrokerConfig)
-	flags.SetUploadableConfig(DefaultFileConfig, &DefaultUploadConfig)
-	flags.SetLoggerConfig(DefaultFileConfig, &DefaultLogConfig)
+func getDefaultConfig() *flags.UploadFileConfig {
+	cfg := &flags.UploadFileConfig{}
+
+	flags.InitConfigDefaults(cfg, flags.ConfigNames, nil)
+	cfg.Files = "test"
+
+	return cfg
 }
 
-func parseAndVerify(expected *ParsedFlags, t *testing.T, expectConfigFileNotFound bool) {
-	brokerCfg, uploadCfg, logCfg, glob, err := flags.ParseFlags("n/a")
-	actual := &ParsedFlags{
-		BrokerConfig: brokerCfg, UploadConfig: uploadCfg,
-		LogConfig: logCfg, FilesGlob: glob}
+func parseAndVerify(expected *flags.UploadFileConfig, t *testing.T, expectConfigFileNotFound bool) {
+	parsed, err := flags.ParseFlags("n/a")
 
-	VerifyEquals(expected, actual, t, nil)
+	VerifyEquals(expected, parsed, t, nil)
 	VerifyNotFoundError(err, expectConfigFileNotFound, t)
 }

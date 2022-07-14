@@ -20,19 +20,19 @@ import (
 	"strconv"
 	"testing"
 	"time"
-	"unicode"
 
-	"github.com/eclipse-kanto/file-upload/client"
 	flags "github.com/eclipse-kanto/file-upload/flagparse"
-	"github.com/eclipse-kanto/file-upload/logger"
 )
 
-// ParsedFlags represents parsed cli flags
-type ParsedFlags struct {
-	BrokerConfig *client.BrokerConfig
-	UploadConfig *client.UploadableConfig
-	LogConfig    *logger.LogConfig
-	FilesGlob    string
+// ConfigToArgs convert config to OS command-line args
+func ConfigToArgs(t *testing.T, cfg interface{}, skip map[string]bool, addDefaults bool) []Arg {
+	a := make([]Arg, 0, 10)
+
+	value := reflect.ValueOf(cfg).Elem()
+
+	configToArgs(t, value, skip, addDefaults, &a)
+
+	return a
 }
 
 // Arg represents cli args
@@ -48,73 +48,31 @@ func (arg *Arg) String() string {
 // Common test values
 const (
 	defaultMessageFormat = "Expected differs from actual:\nexpected:\n%v\nactual:\n%v:"
-	ExpectWarn           = true
-	AddDefaultsFalse     = false
-	AddDefaultsTrue      = true
 )
 
 // Common test variables
 var (
 	OriginalArgs  []string
-	OriginalFlags flag.FlagSet
-
-	TestCliFullArgs       []*Arg
-	FullUploadParsedFlags *ParsedFlags
-
-	// used in actual test cases, put here to avoid duplication
-	DefaultBrokerConfig client.BrokerConfig
-	DefaultUploadConfig client.UploadableConfig
-	DefaultLogConfig    logger.LogConfig
+	originalFlags flag.FlagSet
 )
 
 //ResetFlags used in between tests to reset the flags
 func ResetFlags() {
 	newFlagSet := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	OriginalFlags.VisitAll(func(flag *flag.Flag) {
+	originalFlags.VisitAll(func(flag *flag.Flag) {
 		newFlagSet.Var(flag.Value, flag.Name, flag.Usage)
 	})
 	flag.CommandLine = newFlagSet
 }
 
-// ToArgs convert ParsedFlags to os args
-func (p *ParsedFlags) ToArgs(addDefaults bool, t *testing.T) []*Arg {
-	args := configToArgs(p.BrokerConfig, addDefaults, t)
-	args = append(args, configToArgs(p.UploadConfig, addDefaults, t)...)
-	args = append(args, configToArgs(p.LogConfig, addDefaults, t)...)
-	return args
-}
-
-// SetTestFullUploadArgs prepare full test args for test
-func SetTestFullUploadArgs(config *flags.UploadFileConfig, addDefaults bool, t *testing.T) {
-	brokerCfg := &client.BrokerConfig{Broker: config.BrokerConfig.Broker, Username: config.BrokerConfig.Username, Password: config.BrokerConfig.Password}
-	activeFromTime := config.UploadableConfig.ActiveFrom
-	activeTillTime := config.UploadableConfig.ActiveTill
-	stopTimeoutTime := config.UploadableConfig.StopTimeout
-
-	periodDuration := config.UploadableConfig.Period
-
-	uploadCfg := &client.UploadableConfig{Name: config.UploadableConfig.Name, Context: config.UploadableConfig.Context,
-		Type:   config.UploadableConfig.Type,
-		Period: periodDuration, Active: true, ActiveFrom: activeFromTime, ActiveTill: activeTillTime,
-		Delete: true, Checksum: true, SingleUpload: true, StopTimeout: stopTimeoutTime}
-	logCfg := &logger.LogConfig{LogFile: config.LogConfig.LogFile, LogLevel: config.LogConfig.LogLevel, LogFileSize: config.LogConfig.LogFileSize,
-		LogFileCount: config.LogConfig.LogFileCount, LogFileMaxAge: config.LogConfig.LogFileMaxAge}
-
-	FullUploadParsedFlags = &ParsedFlags{BrokerConfig: brokerCfg, UploadConfig: uploadCfg, LogConfig: logCfg}
-	FullUploadParsedFlags.FilesGlob = config.Files
-	TestCliFullArgs = FullUploadParsedFlags.ToArgs(addDefaults, t)
-	if config.Files != "" || addDefaults {
-		TestCliFullArgs = append(TestCliFullArgs, &Arg{flags.Files, config.Files})
-	}
-}
-
 // PassArgs pass the args to os.Args
-func PassArgs(args ...*Arg) {
-	var toAppend []string
+func PassArgs(args ...Arg) {
+	testArgs := []string{"flagtest"}
+
 	for _, e := range args {
-		toAppend = append(toAppend, e.String())
+		testArgs = append(testArgs, e.String())
 	}
-	os.Args = append(OriginalArgs, toAppend...)
+	os.Args = testArgs
 }
 
 // VerifyEquals compares two interfaces
@@ -144,56 +102,68 @@ func VerifyNotFoundError(returnedError error, expected bool, t *testing.T) {
 }
 
 // RemoveCliArg removes an argument if some test needs to omit it
-func RemoveCliArg(name string, args []*Arg) {
-	for i, arg := range args {
-		if arg.Name == name {
-			lastElementIndex := len(args) - 1
-			args[i] = args[lastElementIndex]
-			args = args[:lastElementIndex]
+func RemoveCliArg(name string, args []Arg) []Arg {
+	result := make([]Arg, 0, len(args))
+
+	for _, arg := range args {
+		if arg.Name != name {
+			result = append(result, arg)
+		}
+	}
+
+	return result
+}
+
+func configToArgs(t *testing.T, s reflect.Value, skip map[string]bool, addDefaults bool, args *[]Arg) {
+	typeOfS := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		field := s.Field(i)
+		fieldType := typeOfS.Field(i)
+		name := flags.ToFlagName(fieldType.Name)
+
+		if skip != nil && skip[name] {
+			continue
+		}
+
+		if !fieldType.IsExported() {
+			continue
+		}
+
+		v, recurse := getConfigArgValue(t, field)
+
+		if recurse {
+			configToArgs(t, field, skip, addDefaults, args)
+		} else {
+			*args = append(*args, Arg{name, v})
 		}
 	}
 }
 
-func configToArgs(cfg interface{}, addDefaults bool, t *testing.T) []*Arg {
-	var args []*Arg
-	if cfg != nil {
-		s := reflect.ValueOf(cfg).Elem()
-		typeOfS := s.Type()
-		for i := 0; i < s.NumField(); i++ {
-			f := s.Field(i)
-			if addDefaults || f.Interface() != reflect.Zero(f.Type()).Interface() {
-				name := typeOfS.Field(i).Name
-				rn := []rune(name)
-				rn[0] = unicode.ToLower(rn[0])
-				args = append(args, &Arg{string(rn), getConfigArgValue(f.Interface(), t)})
-			}
-		}
+func getConfigArgValue(t *testing.T, v reflect.Value) (string, bool) {
+	flagValue, ok := v.Addr().Interface().(flag.Value)
+	if ok {
+		return flagValue.String(), false
 	}
-	return args
-}
 
-func getConfigArgValue(value interface{}, t *testing.T) string {
+	if v.Kind() == reflect.Struct {
+		return "", true
+	}
+
+	value := v.Interface()
+	result := ""
+
 	switch value.(type) {
 	case string:
-		return value.(string)
+		result = value.(string)
 	case int:
-		return strconv.Itoa(value.(int))
+		result = strconv.Itoa(value.(int))
 	case bool:
-		return strconv.FormatBool(value.(bool))
-	case time.Duration:
-		return value.(time.Duration).String()
-	case *time.Time:
-		return timeToRfc3999(value.(*time.Time))
-	case client.Xtime:
-		xt := value.(client.Xtime)
-		return xt.String()
-	case client.Duration:
-		dur := value.(client.Duration)
-		return dur.String()
+		result = strconv.FormatBool(value.(bool))
 	default:
 		t.Errorf("Unexpected argument value %v", value)
-		return ""
 	}
+
+	return result, false
 }
 
 func timeToRfc3999(t *time.Time) string {
