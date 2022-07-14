@@ -68,10 +68,10 @@ func TestRingBufferOverwrite(t *testing.T) {
 	assertEquals(t, exp, act)
 }
 
-func TestRingBufferError(t *testing.T) {
+func TestRingBufferGet(t *testing.T) {
 	size := rand.Intn(100) + 1
 
-	t.Logf("TestRingBufferPanic with size %d", size)
+	t.Logf("TestRingBufferGet with size %d", size)
 
 	r := newRingBuffer(size)
 
