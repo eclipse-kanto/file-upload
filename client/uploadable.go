@@ -348,6 +348,11 @@ func (u *AutoUploadable) activate(payload []byte) *ErrorResponse {
 		return &ErrorResponse{http.StatusBadRequest, msg}
 	}
 
+	if params.To.Before(*params.From) {
+		msg := fmt.Sprintf("period end - %v -  is before period start - %v", params.To, params.From)
+		return &ErrorResponse{http.StatusBadRequest, msg}
+	}
+
 	logger.Infof("activate called: %+v", params)
 	u.state.Active = true
 	u.state.StartTime = params.From
