@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	groupID     = "testGroupID"
-	deviceID    = "testDeviceID"
-	featureName = "TestUpload"
+	namespace = "testNamespace"
+	deviceID  = "testDeviceID"
+	featureID = "TestUpload"
 )
 
 var (
@@ -37,30 +37,30 @@ var (
 	testCfg *UploadableConfig
 )
 
-func setUp() {
+func setUp(t *testing.T) {
 	var err error
 
 	basedir, err = os.MkdirTemp(".", "testdir")
 	if err != nil {
-		log.Fatalln(err)
+		t.Fatal(err)
 	}
 }
 
-func tearDown() {
+func tearDown(t *testing.T) {
 	if err := os.RemoveAll(basedir); err != nil {
-		log.Println(err)
+		t.Log(err)
 	}
+}
+
+func getTestFiles(t *testing.T) (string, string, string, string) {
+	return addTestFile(t, "a.txt"), addTestFile(t, "b.txt"), addTestFile(t, "c.dat"), addTestFile(t, "d.dat")
 }
 
 func TestUpload(t *testing.T) {
-	setUp()
-	defer tearDown()
+	setUp(t)
+	defer tearDown(t)
 
-	a := addTestFile(t, "a.txt")
-	b := addTestFile(t, "b.txt")
-	addTestFile(t, "c.dat")
-	addTestFile(t, "d.dat")
-
+	a, b, _, _ := getTestFiles(t)
 	glob := filepath.Join(basedir, "*.txt")
 
 	f, client := newConnectedFileUpload(t, glob)
@@ -70,14 +70,10 @@ func TestUpload(t *testing.T) {
 }
 
 func TestUploadDynamicGlob(t *testing.T) {
-	setUp()
-	defer tearDown()
+	setUp(t)
+	defer tearDown(t)
 
-	a := addTestFile(t, "a.txt")
-	b := addTestFile(t, "b.txt")
-	c := addTestFile(t, "c.dat")
-	d := addTestFile(t, "d.dat")
-
+	a, b, c, d := getTestFiles(t)
 	glob := filepath.Join(basedir, "*.txt")
 
 	f, client := newConnectedFileUpload(t, glob)
@@ -153,12 +149,12 @@ func addTestFile(t *testing.T, path string) string {
 
 func newConnectedFileUpload(t *testing.T, filesGlob string) (*FileUpload, *mockedClient) {
 	testCfg = &UploadableConfig{}
-	testCfg.Name = featureName
+	testCfg.Name = featureID
 	testCfg.Type = "test_type"
 	testCfg.Context = "test_context"
 
-	client := newMokedClient()
-	edgeCfg := &EdgeConfiguration{DeviceID: groupID + ":" + deviceID, TenantID: "testTenantID", PolicyID: "testPolicyID"}
+	client := newMockedClient()
+	edgeCfg := &EdgeConfiguration{DeviceID: namespace + ":" + deviceID, TenantID: "testTenantID", PolicyID: "testPolicyID"}
 
 	var err error
 	u, err := NewFileUpload(filesGlob, client, edgeCfg, testCfg)
@@ -194,8 +190,6 @@ func assertError(t *testing.T, err error) {
 	}
 }
 
-// mockedClient represents mocked mqtt.Client interface used for testing.
-
 const (
 	twin = "twin"
 	live = "live"
@@ -204,6 +198,7 @@ const (
 	request = "request"
 )
 
+// mockedClient represents mocked mqtt.Client interface used for testing.
 type mockedClient struct {
 	err  error
 	twin chan *protocol.Envelope
@@ -211,7 +206,7 @@ type mockedClient struct {
 	mu   sync.Mutex
 }
 
-func newMokedClient() *mockedClient {
+func newMockedClient() *mockedClient {
 	client := &mockedClient{}
 
 	client.twin = make(chan *protocol.Envelope, 10)
@@ -238,7 +233,7 @@ func (client *mockedClient) assertLiveEmpty(t *testing.T) {
 	client.assertEmpty(t, live)
 }
 
-// value returns last payload value or waits 10sec for new payload.
+// msg returns last payload value or waits 5 seconds for new payload.
 func (client *mockedClient) msg(t *testing.T, channel string, action string) map[string]interface{} {
 	t.Helper()
 	client.mu.Lock()
@@ -247,12 +242,12 @@ func (client *mockedClient) msg(t *testing.T, channel string, action string) map
 	ch := client.getChannel(channel)
 	select {
 	case env := <-ch:
-		assertEquals(t, groupID, env.Topic.Namespace)
+		assertEquals(t, namespace, env.Topic.Namespace)
 		assertEquals(t, deviceID, env.Topic.EntityID)
 		assertEquals(t, action, string(env.Topic.Action))
 
 		// Valdiate its starting path.
-		prefix := "/features/" + featureName
+		prefix := "/features/" + featureID
 		if !strings.HasPrefix(env.Path, prefix) {
 			t.Fatalf("message path do not starts with [%v]: %v", prefix, env.Path)
 		}
