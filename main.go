@@ -39,6 +39,7 @@ func main() {
 		logger.Warning(warn)
 	}
 
+	logger.Infof("files glob: '%s'", filesGlob)
 	logger.Infof("uploadable config: %+v", uploadCfg)
 	logger.Infof("log config: %+v", logCfg)
 

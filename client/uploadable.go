@@ -35,6 +35,8 @@ const (
 
 	optionsPrefix = "options."
 
+	filePathOption = "file.path"
+
 	defaultDisconnectTimeout = 250 * time.Millisecond
 	defaultKeepAlive         = 20 * time.Second
 )
@@ -465,7 +467,7 @@ func (u *AutoUploadable) UploadFiles(correlationID string, files []string, optio
 	for i, childID := range childIDs {
 		options := uploaders.ExtractDictionary(options, optionsPrefix)
 		options["storage.providers"] = "aws, azure, generic"
-		options["file.path"] = files[i]
+		options[filePathOption] = files[i]
 
 		go u.sendUploadRequest(childID, options, files[i])
 	}
