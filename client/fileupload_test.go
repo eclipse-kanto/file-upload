@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/eclipse/ditto-clients-golang/protocol"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
@@ -198,7 +198,7 @@ const (
 	request = "request"
 )
 
-// mockedClient represents mocked mqtt.Client interface used for testing.
+// mockedClient represents mocked MQTT.Client interface used for testing.
 type mockedClient struct {
 	err  error
 	twin chan *protocol.Envelope
@@ -301,7 +301,7 @@ func (client *mockedClient) IsConnectionOpen() bool {
 }
 
 // Connect returns finished token.
-func (client *mockedClient) Connect() mqtt.Token {
+func (client *mockedClient) Connect() MQTT.Token {
 	return &mockedToken{err: client.err}
 }
 
@@ -311,7 +311,7 @@ func (client *mockedClient) Disconnect(quiesce uint) {
 }
 
 // Publish returns finished token and set client topic and payload.
-func (client *mockedClient) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
+func (client *mockedClient) Publish(topic string, qos byte, retained bool, payload interface{}) MQTT.Token {
 	env := &protocol.Envelope{}
 	if err := json.Unmarshal(payload.([]byte), env); err != nil {
 		log.Fatalf("unexpected error during data unmarshal: %v", err)
@@ -329,31 +329,31 @@ func (client *mockedClient) Publish(topic string, qos byte, retained bool, paylo
 }
 
 // Subscribe returns finished token.
-func (client *mockedClient) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token {
+func (client *mockedClient) Subscribe(topic string, qos byte, callback MQTT.MessageHandler) MQTT.Token {
 	return &mockedToken{err: client.err}
 }
 
 // SubscribeMultiple returns finished token.
-func (client *mockedClient) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
+func (client *mockedClient) SubscribeMultiple(filters map[string]byte, callback MQTT.MessageHandler) MQTT.Token {
 	return &mockedToken{err: client.err}
 }
 
 // Unsubscribe returns finished token.
-func (client *mockedClient) Unsubscribe(topics ...string) mqtt.Token {
+func (client *mockedClient) Unsubscribe(topics ...string) MQTT.Token {
 	return &mockedToken{err: client.err}
 }
 
 // AddRoute do nothing.
-func (client *mockedClient) AddRoute(topic string, callback mqtt.MessageHandler) {
+func (client *mockedClient) AddRoute(topic string, callback MQTT.MessageHandler) {
 	// Do nothing.
 }
 
 // OptionsReader returns an empty struct.
-func (client *mockedClient) OptionsReader() mqtt.ClientOptionsReader {
-	return mqtt.ClientOptionsReader{}
+func (client *mockedClient) OptionsReader() MQTT.ClientOptionsReader {
+	return MQTT.ClientOptionsReader{}
 }
 
-// mockedToken represents mocked mqtt.Token interface used for testing.
+// mockedToken represents mocked MQTT.Token interface used for testing.
 type mockedToken struct {
 	err error
 }
