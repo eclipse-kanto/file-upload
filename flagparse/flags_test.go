@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	testConfig flags.UploadFileConfig = flags.UploadFileConfig{}
+	testConfig flags.UploadConfig = flags.UploadConfig{}
 )
 
 func TestMain(m *testing.M) {
@@ -66,7 +66,7 @@ func TestConfig(t *testing.T) {
 func TestConfigAndCliArgs(t *testing.T) {
 	ResetFlags()
 
-	config := &flags.UploadFileConfig{}
+	config := &flags.UploadConfig{}
 	config.Files = testConfig.Files
 
 	args := ConfigToArgs(t, config, nil, true)
@@ -87,8 +87,8 @@ func TestConfigFileNotExist(t *testing.T) {
 	parseAndVerify(expected, t, true)
 }
 
-func getDefaultConfig() *flags.UploadFileConfig {
-	cfg := &flags.UploadFileConfig{}
+func getDefaultConfig() *flags.UploadConfig {
+	cfg := &flags.UploadConfig{}
 
 	flags.InitConfigDefaults(cfg, flags.ConfigNames, nil)
 	cfg.Files = "test"
@@ -96,7 +96,7 @@ func getDefaultConfig() *flags.UploadFileConfig {
 	return cfg
 }
 
-func parseAndVerify(expected *flags.UploadFileConfig, t *testing.T, expectConfigFileNotFound bool) {
+func parseAndVerify(expected *flags.UploadConfig, t *testing.T, expectConfigFileNotFound bool) {
 	parsed, err := flags.ParseFlags("n/a")
 
 	VerifyEquals(expected, parsed, t, nil)

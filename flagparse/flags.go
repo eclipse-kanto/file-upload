@@ -35,8 +35,8 @@ const (
 	Files = "files"
 )
 
-//UploadFileConfig describes file config of uploadable
-type UploadFileConfig struct {
+//UploadConfig describes config of uploadable feature
+type UploadConfig struct {
 	client.BrokerConfig
 	client.UploadableConfig
 	logger.LogConfig
@@ -54,10 +54,10 @@ var ConfigNames = map[string]string{
 type ConfigFileMissing error
 
 //ParseFlags parses the CLI flags and generates an upload file configuration
-func ParseFlags(version string) (*UploadFileConfig, ConfigFileMissing) {
+func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	dumpFiles := flag.Bool("dumpFiles", false, "On startup dump the file paths matching the '-files' glob pattern to standard output.")
 
-	flagsConfig := &UploadFileConfig{}
+	flagsConfig := &UploadConfig{}
 	printVersion := flag.Bool("version", false, "Prints current version and exits")
 	configFile := flag.String(ConfigFile, "", "Defines the configuration file")
 
@@ -70,7 +70,7 @@ func ParseFlags(version string) (*UploadFileConfig, ConfigFileMissing) {
 		os.Exit(0)
 	}
 
-	config := &UploadFileConfig{}
+	config := &UploadConfig{}
 	warn := loadConfigFromFile(*configFile, config, ConfigNames, nil)
 	applyFlags(config, *flagsConfig)
 
@@ -143,7 +143,8 @@ func initConfigValues(valueOfConfig reflect.Value, names map[string]string, skip
 	r := getReplacer(names)
 
 	typeOfConfig := valueOfConfig.Type()
-	for i := 0; i < typeOfConfig.NumField(); i++ {
+	numFields := typeOfConfig.NumField()
+	for i := 0; i < numFields; i++ {
 		fieldType := typeOfConfig.Field(i)
 		argName := ToFlagName(fieldType.Name)
 
