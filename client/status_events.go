@@ -36,6 +36,7 @@ func newStatusEventsConsumer(size int) *statusEventsConsumer {
 
 // start event delivery loop.
 func (q *statusEventsConsumer) start(consume func(e interface{})) {
+	q.closed = false
 	go q.eventLoop(consume)
 }
 

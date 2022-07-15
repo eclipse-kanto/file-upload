@@ -38,9 +38,21 @@ type EdgeConfiguration struct {
 	PolicyID string `json:"policyId"`
 }
 
-// FetchEdgeConfiguration retrieves local configuration from the Edge Agent
-func FetchEdgeConfiguration(cfg *BrokerConfig) (chan *EdgeConfiguration, MQTT.Client, error) {
-	logger.Infof("retrieve edge configuration from: %s", cfg.Broker)
+// EdgeConnector listens for Edge Thing configuration changes and notifies the corresponding EdgeClient
+type EdgeConnector struct {
+	mqttClient MQTT.Client
+	cfg        *EdgeConfiguration
+	edgeClient EdgeClient
+}
+
+// EdgeClient receives notifications of Edge Thing configuration changes from EdgeConnector
+type EdgeClient interface {
+	Connect(client MQTT.Client, cfg *EdgeConfiguration)
+	Disconnect()
+}
+
+// NewEdgeConnector create EdgeConnector with the given BrokerConfig for the given EdgeClient
+func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error) {
 	opts := MQTT.NewClientOptions().
 		AddBroker(cfg.Broker).
 		SetClientID(uuid.New().String()).
@@ -51,33 +63,47 @@ func FetchEdgeConfiguration(cfg *BrokerConfig) (chan *EdgeConfiguration, MQTT.Cl
 		opts = opts.SetUsername(cfg.Username).SetPassword(cfg.Password)
 	}
 
-	client := MQTT.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return nil, nil, token.Error()
+	p := &EdgeConnector{mqttClient: MQTT.NewClient(opts), edgeClient: ecl}
+	if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		return nil, token.Error()
 	}
 
-	cfgChan := make(chan *EdgeConfiguration, 1)
-
-	if token := client.Subscribe(topic, 1, func(client MQTT.Client, message MQTT.Message) {
+	if token := p.mqttClient.Subscribe(topic, 1, func(client MQTT.Client, message MQTT.Message) {
 		localCfg := &EdgeConfiguration{}
 		err := json.Unmarshal(message.Payload(), localCfg)
 		if err != nil {
 			logger.Errorf("could not unmarshal edge configuration: %v", err)
-			cfgChan <- nil
 			return
 		}
 
-		logger.Infof("edge configuration received: %v", localCfg)
+		if p.cfg == nil || *localCfg != *p.cfg {
+			logger.Infof("new edge configuration received: %v", localCfg)
+			if p.cfg != nil {
+				p.edgeClient.Disconnect()
+			}
+			p.cfg = localCfg
+			ecl.Connect(p.mqttClient, p.cfg)
+		}
 
-		client.Unsubscribe(topic)
-		cfgChan <- localCfg
 	}); token.Wait() && token.Error() != nil {
-		logger.Errorf("error subscribing to %s topic: %v", topic, token.Error())
+		return nil, token.Error()
 	}
 
-	if token := client.Publish("edge/thing/request", 1, false, ""); token.Wait() && token.Error() != nil {
-		return nil, nil, token.Error()
+	if token := p.mqttClient.Publish("edge/thing/request", 1, false, ""); token.Wait() && token.Error() != nil {
+		return nil, token.Error()
 	}
 
-	return cfgChan, client, nil
+	return p, nil
+}
+
+// Close the EdgeConnector
+func (p *EdgeConnector) Close() {
+	if p.cfg != nil {
+		p.edgeClient.Disconnect()
+	}
+
+	p.mqttClient.Unsubscribe(topic)
+	p.mqttClient.Disconnect(200)
+
+	logger.Info("disconnected from MQTT broker")
 }
