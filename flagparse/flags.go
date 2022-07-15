@@ -46,7 +46,7 @@ type UploadConfig struct {
 
 //ConfigNames contains template names to be replaced in config properties descriptions and default values
 var ConfigNames = map[string]string{
-	"name": "Autouploadable", "feature": "Uploadable", "period": "Upload period",
+	"name": "AutoUploadable", "feature": "Uploadable", "period": "Upload period",
 	"action": "upload", "actions": "uploads", "running_actions": "uploads",
 }
 
