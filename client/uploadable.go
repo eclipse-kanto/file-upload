@@ -57,6 +57,7 @@ type UploadableConfig struct {
 	SingleUpload bool `json:"singleUpload,omitempty" def:"false" descr:"Forbid triggering of new uploads when there is upload in progress. Trigger can be forced from the backend with the 'force' option."`
 
 	StopTimeout Duration `json:"stopTimeout,omitempty" def:"30s" descr:"Time to wait for running {running_actions} to finish when stopping. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
+	ServerCert  string   `json:"serverCert,omitempty" def:"" descr:"A PEM encoded server certificate for secure file {transfers}.\nThis certificate will be added to the trusted certificates during HTTPS {transfers}. Useful for servers with self-signed certificates."`
 }
 
 // AutoUploadableState is used for serializing the state property of the AutoUploadable feature
@@ -468,7 +469,7 @@ func (u *AutoUploadable) cancel(payload []byte) *ErrorResponse {
 // UploadFiles starts the upload of the given files, by sending an upload request with the specified
 // correlation ID and options.
 func (u *AutoUploadable) UploadFiles(correlationID string, files []string, options map[string]string) {
-	childIDs := u.uploads.AddMulti(correlationID, files, u.cfg.Delete, u.cfg.Checksum, u)
+	childIDs := u.uploads.AddMulti(correlationID, files, u.cfg.Delete, u.cfg.Checksum, u.cfg.ServerCert, u)
 	for i, childID := range childIDs {
 		options := uploaders.ExtractDictionary(options, optionsPrefix)
 		options["storage.providers"] = "aws, azure, generic"

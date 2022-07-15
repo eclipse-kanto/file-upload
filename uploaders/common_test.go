@@ -12,23 +12,36 @@
 package uploaders
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
-const testBody = "just a test"
+const (
+	validCert      = "testdata/valid_cert.pem"
+	validKey       = "testdata/valid_key.pem"
+	expiredCert    = "testdata/expired_cert.pem"
+	expiredKey     = "testdata/expired_key.pem"
+	testBody       = "just a test"
+	sslCertFileEnv = "SSL_CERT_FILE"
+)
 
 var (
 	testFile    string
 	testHeaders = map[string]string{"name-a": "value-a", "name-b": "value-b"}
 
-	handler *TestHTTPHandler
-	server  *http.Server
+	handler      *TestHTTPHandler
+	server       *http.Server
+	serverSecure *http.Server
+
+	sslCertFile string
 )
 
 type TestHTTPHandler struct {
@@ -88,65 +101,187 @@ func setUp() {
 
 	go func() {
 		if err := server.Serve(ln); err != nil {
-			log.Println(err)
+			log.Printf("failed to start web server: %v", err)
+		}
+	}()
+
+	serverSecure = &http.Server{
+		Addr:    "localhost:2345",
+		Handler: &mux,
+	}
+
+	lnSecure, err := net.Listen("tcp", serverSecure.Addr)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	go func() {
+		if err := serverSecure.ServeTLS(lnSecure, validCert, validKey); err != nil && err != http.ErrServerClosed {
+			log.Printf("failed to start web server: %v", err)
 		}
 	}()
 }
 
 func tearDown() {
 	report(server.Close())
+	report(serverSecure.Close())
 
 	report(os.Remove(testFile))
 }
 
+func isCertAddedToSystemPool(t *testing.T, certFile string) bool {
+	t.Helper()
+
+	certs, err := x509.SystemCertPool()
+	if err != nil {
+		t.Logf("error getting system certificate pool - %v", err)
+		return false
+	}
+	data, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		t.Logf("error reading certificate file %s - %v", certFile, err)
+		return false
+	}
+	block, _ := pem.Decode(data)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Logf("error parsing certificate %s - %v", certFile, err)
+		return false
+	}
+	subjects := certs.Subjects()
+	for i := 0; i < len(subjects); i++ {
+		if reflect.DeepEqual(subjects[i], cert.RawSubject) {
+			return true
+		}
+	}
+	return false
+}
+
+func setSSLCerts(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS != "linux" {
+		t.Skip("this test only runs on Linux.")
+	}
+	sslCertFile = os.Getenv(sslCertFileEnv)
+	err := os.Setenv(sslCertFileEnv, validCert)
+	if err != nil {
+		t.Skipf("cannot set %s environment variable", sslCertFileEnv)
+	}
+	if !isCertAddedToSystemPool(t, validCert) {
+		t.Skipf("cannot setup test case by adding certificate %s to system certificate pool", validCert)
+	}
+}
+
+func unsetSSLCerts(t *testing.T) {
+	t.Helper()
+
+	if len(sslCertFile) > 0 {
+		os.Setenv(sslCertFileEnv, sslCertFile)
+	} else {
+		os.Unsetenv(sslCertFileEnv)
+	}
+}
+
 func TestHTTPUploadDefaultWithoutChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "", false)
+	testHTTPUploadMethod(t, "", false, false, "", "")
+}
+
+func TestHTTPSUploadDefaultWithoutChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "", false, true, "", "")
 }
 
 func TestHTTPUploadDefaultWithChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "", true)
+	testHTTPUploadMethod(t, "", true, false, "", "")
+}
+
+func TestHTTPSUploadDefaultWithChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "", true, true, "", "")
+}
+
+func TestHTTPSUploadDefaultWithCertAndKey(t *testing.T) {
+	testHTTPUploadMethod(t, "", false, true, validCert, validKey)
 }
 
 func TestHTTPUploadPUTWithoutChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "PUT", false)
+	testHTTPUploadMethod(t, "PUT", false, false, "", "")
+}
+
+func TestHTTPSUploadPUTWithoutChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "PUT", false, true, "", "")
 }
 
 func TestHTTPUploadPUTWithChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "PUT", true)
+	testHTTPUploadMethod(t, "PUT", true, false, "", "")
+}
+
+func TestHTTPSUploadPUTWithCertAndKey(t *testing.T) {
+	testHTTPUploadMethod(t, "PUT", false, true, validCert, validKey)
+}
+
+func TestHTTPSUploadPUTWithChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "PUT", true, true, "", "")
 }
 
 func TestHTTPUploadPOSTWithoutChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "POST", false)
+	testHTTPUploadMethod(t, "POST", false, false, "", "")
+}
+
+func TestHTTPSUploadPOSTWithoutChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "POST", false, true, "", "")
 }
 
 func TestHTTPUploadPOSTWithChecksum(t *testing.T) {
-	testHTTPUploadMethod(t, "POST", true)
+	testHTTPUploadMethod(t, "POST", true, false, "", "")
+}
+
+func TestHTTPSUploadPOSTWithCertAndKey(t *testing.T) {
+	testHTTPUploadMethod(t, "POST", false, true, validCert, validKey)
+}
+
+func TestHTTPSUploadPOSTWithChecksum(t *testing.T) {
+	setSSLCerts(t)
+	defer unsetSSLCerts(t)
+	testHTTPUploadMethod(t, "POST", true, true, "", "")
 }
 
 func TestNewHttpUploaderErrors(t *testing.T) {
 	options := map[string]string{}
 
-	u, err := NewHTTPUploader(options)
+	u, err := NewHTTPUploader(options, "")
 	assertNil(t, u)
 	assertError(t, err)
 
 	options[URLProp] = "http://localhost/up"
 	options[MethodProp] = "GET"
 
-	u, err = NewHTTPUploader(options)
+	u, err = NewHTTPUploader(options, "")
 	assertNil(t, u)
 	assertError(t, err)
 }
 
 func TestHTTPUploadPortFailure(t *testing.T) {
-	testHTTPUploadFailureAddr(t, "http://localhost:5678/up")
+	testHTTPUploadFailure(t, "http://localhost:5678/up", false)
 }
 
 func TestHTTPUploadAliasFailure(t *testing.T) {
-	testHTTPUploadFailureAddr(t, "http://localhost:1234/wrong")
+	testHTTPUploadFailure(t, "http://localhost:1234/wrong", false)
 }
 
-func testHTTPUploadFailureAddr(t *testing.T, addr string) {
+func TestHTTPSUploadCertificateFailure(t *testing.T) {
+	testHTTPUploadFailure(t, "https://localhost:2345/up", true)
+}
+
+func testHTTPUploadFailure(t *testing.T, addr string, secure bool) {
 	f, err := os.Open(testFile)
 	assertNoError(t, err)
 
@@ -157,22 +292,30 @@ func testHTTPUploadFailureAddr(t *testing.T, addr string) {
 		URLProp: addr,
 	}
 
-	u, err := NewHTTPUploader(options)
+	serverCert := ""
+	if secure {
+		serverCert = expiredCert
+	}
+
+	u, err := NewHTTPUploader(options, serverCert)
 	assertNoError(t, err)
 
 	err = u.UploadFile(f, false, nil)
 	assertError(t, err)
 }
 
-func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool) {
+func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool, secure bool, cert string, key string) {
 	f, err := os.Open(testFile)
 	assertNoError(t, err)
 
 	defer f.Close()
 	defer handler.reset()
 
-	options := map[string]string{
-		URLProp: "http://localhost:1234/up",
+	options := map[string]string{}
+	if secure {
+		options[URLProp] = "https://localhost:2345/up"
+	} else {
+		options[URLProp] = "http://localhost:1234/up"
 	}
 
 	if method != "" {
@@ -183,7 +326,7 @@ func testHTTPUploadMethod(t *testing.T, method string, useChecksum bool) {
 
 	addAll(options, prefixKeys(testHeaders, HeadersPrefix))
 
-	u, err := NewHTTPUploader(options)
+	u, err := NewHTTPUploader(options, cert)
 	assertNoError(t, err)
 
 	md5 := getChecksum(t, f, useChecksum)
