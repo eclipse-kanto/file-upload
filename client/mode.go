@@ -34,7 +34,7 @@ const (
 	ModeNameScoped = "scoped"
 )
 
-// String return string representation of AccessMode
+// String returns string representation of AccessMode
 func (m AccessMode) String() string {
 	switch m {
 	case ModeStrict:
