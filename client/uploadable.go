@@ -43,20 +43,20 @@ const (
 
 // UploadableConfig contains configuration for the AutoUploadable feature
 type UploadableConfig struct {
-	Name    string   `json:"name,omitempty" def:"Autouploadable" descr:"Name for the Uploadable feature. Should conform to https://www.eclipse.org/ditto/basic-namespaces-and-names.html#name"`
-	Context string   `json:"context,omitempty" def:"edge" descr:"ID of the Uploadable feature."`
-	Type    string   `json:"type,omitempty" def:"file" descr:"Type of the Uploadable feature."`
-	Period  Duration `json:"period,omitempty" def:"10h" descr:"Upload period. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
+	Name    string   `json:"name,omitempty" def:"{name}" descr:"Name for the {feature} feature.\nShould conform to https://docs.bosch-iot-suite.com/things/basic-concepts/namespace-thing-feature/#characters-allowed-in-a-feature-id"`
+	Context string   `json:"context,omitempty" def:"edge" descr:"ID of the {feature} feature."`
+	Type    string   `json:"type,omitempty" def:"file" descr:"Type of the {feature} feature."`
+	Period  Duration `json:"period,omitempty" def:"10h" descr:"{period}. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
 
-	Active     bool  `json:"active,omitempty" def:"false" descr:"Activate periodic uploads"`
-	ActiveFrom Xtime `json:"activeFrom,omitempty" descr:"Time from which periodic uploads should be active, in RFC 3339 format. If ommitted (and 'active' flag is set) current time will be used as start of the periodic uploads."`
-	ActiveTill Xtime `json:"activeTill,omitempty" descr:"Time till which periodic uploads should be active, in RFC 3339 format. If ommitted (and 'active' flag is set) periodic uploads will be active indefinitely."`
+	Active     bool  `json:"active,omitempty" def:"false" descr:"Activate periodic {actions}"`
+	ActiveFrom Xtime `json:"activeFrom,omitempty" descr:"Time from which periodic {actions} should be active, in RFC 3339 format (2006-01-02T15:04:05Z07:00). If omitted (and 'active' flag is set) current time will be used as start of the periodic {actions}."`
+	ActiveTill Xtime `json:"activeTill,omitempty" descr:"Time till which periodic {actions} should be active, in RFC 3339 format (2006-01-02T15:04:05Z07:00). If omitted (and 'active' flag is set) periodic {actions} will be active indefinitely."`
 
 	Delete       bool `json:"delete,omitempty" def:"false" descr:"Delete successfully uploaded files"`
 	Checksum     bool `json:"checksum,omitempty" def:"false" descr:"Send MD5 checksum for uploaded files to ensure data integrity. Computing checksums incurs additional CPU/disk usage."`
 	SingleUpload bool `json:"singleUpload,omitempty" def:"false" descr:"Forbid triggering of new uploads when there is upload in progress. Trigger can be forced from the backend with the 'force' option."`
 
-	StopTimeout Duration `json:"stopTimeout,omitempty" def:"30s" descr:"Time to wait for running uploads to finish. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
+	StopTimeout Duration `json:"stopTimeout,omitempty" def:"30s" descr:"Time to wait for running {running_actions} to finish when stopping. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
 }
 
 // AutoUploadableState is used for serializing the state property of the AutoUploadable feature

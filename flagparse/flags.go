@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"time"
+	"strings"
 	"unicode"
 
 	"github.com/eclipse-kanto/file-upload/client"
@@ -32,49 +32,36 @@ import (
 const (
 	ConfigFile = "configFile"
 
-	Files        = "files"
-	DefaultFiles = ""
+	Files = "files"
 )
 
-//UploadFileConfig describes file config of uploadable
-type UploadFileConfig struct {
-	*client.BrokerConfig
-	*client.UploadableConfig
-	*logger.LogConfig
+//UploadConfig describes config of uploadable feature
+type UploadConfig struct {
+	client.BrokerConfig
+	client.UploadableConfig
+	logger.LogConfig
 
-	Files string `json:"files,omitempty"`
+	Files string `json:"files,omitempty" descr:"Glob pattern for the files to upload"`
+}
+
+//ConfigNames contains template names to be replaced in config properties descriptions and default values
+var ConfigNames = map[string]string{
+	"name": "Autouploadable", "feature": "Uploadable", "period": "Upload period",
+	"action": "upload", "actions": "uploads", "running_actions": "uploads",
 }
 
 //ConfigFileMissing error, which represents a warning for missing config file
 type ConfigFileMissing error
 
-//NewUploadFileConfig return initialized UploadFileConfig
-func NewUploadFileConfig() *UploadFileConfig {
-	return &UploadFileConfig{
-		&client.BrokerConfig{},
-		&client.UploadableConfig{},
-		&logger.LogConfig{},
-		"",
-	}
-}
-
-//ParseFlags Define & Parse all flags
-func ParseFlags(version string) (*client.BrokerConfig, *client.UploadableConfig, *logger.LogConfig, string, ConfigFileMissing) {
+//ParseFlags parses the CLI flags and generates an upload file configuration
+func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	dumpFiles := flag.Bool("dumpFiles", false, "On startup dump the file paths matching the '-files' glob pattern to standard output.")
 
-	config := NewUploadFileConfig()
+	flagsConfig := &UploadConfig{}
 	printVersion := flag.Bool("version", false, "Prints current version and exits")
 	configFile := flag.String(ConfigFile, "", "Defines the configuration file")
 
-	brokerConfig := &client.BrokerConfig{}
-	uploadConfig := &client.UploadableConfig{}
-	logConfig := &logger.LogConfig{}
-	filesGlob := ""
-
-	FlagBroker(config)
-	FlagUploadable(config)
-	FlagLogger(config)
-	flag.StringVar(&config.Files, Files, DefaultFiles, "Glob pattern for the files to upload")
+	initFlagVars(flagsConfig, ConfigNames, nil)
 
 	flag.Parse()
 
@@ -83,8 +70,9 @@ func ParseFlags(version string) (*client.BrokerConfig, *client.UploadableConfig,
 		os.Exit(0)
 	}
 
-	warn := applyConfigurationFile(*configFile, brokerConfig, uploadConfig, logConfig, &filesGlob)
-	ApplyFlags(config, brokerConfig, uploadConfig, logConfig, &filesGlob)
+	config := &UploadConfig{}
+	warn := loadConfigFromFile(*configFile, config, ConfigNames, nil)
+	applyFlags(config, *flagsConfig)
 
 	if *dumpFiles {
 		if config.Files == "" {
@@ -98,44 +86,46 @@ func ParseFlags(version string) (*client.BrokerConfig, *client.UploadableConfig,
 		}
 	}
 
-	return brokerConfig, uploadConfig, logConfig, filesGlob, warn
+	return config, warn
 }
 
-// ApplyFlags applies cli values over config values
-func ApplyFlags(config *UploadFileConfig, brokerConfig *client.BrokerConfig,
-	uploadConfig *client.UploadableConfig, logConfig *logger.LogConfig, filesGlob *string) {
-
-	srcBroker := reflect.ValueOf(config.BrokerConfig).Elem()
-	valBroker := reflect.ValueOf(brokerConfig).Elem()
-
-	srcUpload := reflect.ValueOf(config.UploadableConfig).Elem()
-	valUpload := reflect.ValueOf(uploadConfig).Elem()
-
-	srcLog := reflect.ValueOf(config.LogConfig).Elem()
-	valLog := reflect.ValueOf(logConfig).Elem()
-
+// applyFlags applies CLI values over config values
+func applyFlags(config interface{}, flagsConfig interface{}) {
+	srcVal := reflect.ValueOf(flagsConfig)
+	dstVal := reflect.ValueOf(config).Elem()
 	flag.Visit(func(f *flag.Flag) {
-		upperCaseName := toUpper(f.Name)
-		switch {
-		case copyFieldIfExists(upperCaseName, srcBroker, valBroker): // copying done, if check is ok, otherwise continue
-		case copyFieldIfExists(upperCaseName, srcUpload, valUpload): // copying done, if check is ok, otherwise continue
-		case copyFieldIfExists(upperCaseName, srcLog, valLog): // copying done, if check is ok, otherwise continue
-		case f.Name == Files:
-			*filesGlob = config.Files
-		default:
-			// Unknown flag
+		name := ToFieldName(f.Name)
+
+		srcField := srcVal.FieldByName(name)
+		if srcField.Kind() != reflect.Invalid {
+			dstField := dstVal.FieldByName(name)
+
+			dstField.Set(srcField)
 		}
 	})
 }
 
-func applyConfigurationFile(configFile string, brokerConfig *client.BrokerConfig,
-	uploadConfig *client.UploadableConfig, logConfig *logger.LogConfig, filesGlob *string) ConfigFileMissing {
-	def := GetUploadFileConfigDefaults()
+//initFlagVars parses the 'cfg' structure and defines flag variables for its fields.
+//The 'cfg' parameter should be a pointer to structure. Flag names are taken from field names (with the first letter lower cased).
+//The 'names' parameter should be used for generating a strings.Replacer, replacing the keys(surrounded with {}) with their values.
+//The 'skip' parameter lists the flag names, that should not be parsed from configuration.
+//Flag descriptions are taken from 'descr' field tags, default values are taken from 'def' field tags
+func initFlagVars(cfg interface{}, names map[string]string, skip map[string]bool) {
+	initConfigValues(reflect.ValueOf(cfg).Elem(), names, skip, true)
+}
+
+//loadConfigFromFile loads the config from the specified file into the given config structure.
+//The 'cfg' parameter should be a pointer to structure
+//The 'names' parameter should be used for generating a strings.Replacer, replacing the keys(surrounded with {}) with their values.
+//The 'skip' parameter lists the flag names, that should not be parsed from configuration.
+func loadConfigFromFile(configFile string, cfg interface{}, names map[string]string, skip map[string]bool) ConfigFileMissing {
+	initConfigValues(reflect.ValueOf(cfg).Elem(), names, skip, false)
+
 	var warn ConfigFileMissing
 
 	// Load configuration file (if possible)
 	if len(configFile) > 0 {
-		err := LoadJSON(configFile, def)
+		err := LoadJSON(configFile, cfg)
 
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -145,22 +135,38 @@ func applyConfigurationFile(configFile string, brokerConfig *client.BrokerConfig
 			}
 		}
 	}
-	SetBrokerConfig(def, brokerConfig)
-	SetUploadableConfig(def, uploadConfig)
-	SetLoggerConfig(def, logConfig)
-	*filesGlob = def.Files
 
 	return warn
 }
 
-func initConfigValues(typeOfConfig reflect.Type, valueOfConfig reflect.Value, flagIt bool) {
-	for i := 0; i < typeOfConfig.NumField(); i++ {
+func initConfigValues(valueOfConfig reflect.Value, names map[string]string, skip map[string]bool, flagIt bool) {
+	r := getReplacer(names)
+
+	typeOfConfig := valueOfConfig.Type()
+	numFields := typeOfConfig.NumField()
+	for i := 0; i < numFields; i++ {
 		fieldType := typeOfConfig.Field(i)
+		argName := ToFlagName(fieldType.Name)
+
+		if skip != nil && skip[argName] {
+			continue
+		}
+
+		if !fieldType.IsExported() {
+			continue
+		}
+
 		defaultValue := fieldType.Tag.Get("def")
 		description := fieldType.Tag.Get("descr")
+
+		if r != nil {
+			defaultValue = r.Replace(defaultValue)
+			description = r.Replace(description)
+		}
+
 		fieldValue := valueOfConfig.FieldByName(fieldType.Name)
 		pointer := fieldValue.Addr().Interface()
-		argName := toLower(fieldType.Name)
+
 		switch val := fieldValue.Interface(); val.(type) {
 		case string:
 			if flagIt {
@@ -171,7 +177,7 @@ func initConfigValues(typeOfConfig reflect.Type, valueOfConfig reflect.Value, fl
 		case bool:
 			defaultBoolValue, err := strconv.ParseBool(defaultValue)
 			if err != nil {
-				log.Println(fmt.Sprintf("Error parsing boolean argument %v with value %v", fieldType.Name, defaultValue))
+				log.Printf("Error parsing boolean argument %v with value %v", fieldType.Name, defaultValue)
 			}
 			if flagIt {
 				flag.BoolVar(pointer.(*bool), argName, defaultBoolValue, description)
@@ -181,7 +187,7 @@ func initConfigValues(typeOfConfig reflect.Type, valueOfConfig reflect.Value, fl
 		case int:
 			defaultIntValue, err := strconv.Atoi(defaultValue)
 			if err != nil {
-				log.Println(fmt.Sprintf("Error parsing integer argument %v with value %v", fieldType.Name, defaultValue))
+				log.Printf("Error parsing integer argument %v with value %v", fieldType.Name, defaultValue)
 			}
 			if flagIt {
 				flag.IntVar(pointer.(*int), argName, defaultIntValue, description)
@@ -189,60 +195,40 @@ func initConfigValues(typeOfConfig reflect.Type, valueOfConfig reflect.Value, fl
 				fieldValue.SetInt(int64(defaultIntValue))
 			}
 		default:
-			if flagIt {
-				flag.Var(pointer.(flag.Value), argName, description)
-			} else {
-				if fieldType.Type.Name() == "Duration" {
-					duration, err := time.ParseDuration(defaultValue)
-					if err != nil {
-						log.Println(fmt.Sprintf("Error parsing duration argument %v with value %v", fieldType.Name, defaultValue))
-					}
-					fieldValue.Set(reflect.ValueOf(client.Duration(duration)))
+			v, ok := pointer.(flag.Value)
+
+			if ok {
+				if flagIt {
+					flag.Var(v, argName, description)
+				} else if err := v.Set(defaultValue); err == nil {
+					fieldValue.Set(reflect.ValueOf(v).Elem())
+				} else {
+					log.Printf("Error parsing argument %v with value %v - %v", fieldType.Name, defaultValue, err)
 				}
+			} else if fieldType.Type.Kind() == reflect.Struct {
+				initConfigValues(fieldValue, names, skip, flagIt)
 			}
 		}
 	}
 }
 
-//FlagUploadable flags uploadable
-func FlagUploadable(config *UploadFileConfig) {
-	initConfigValues(reflect.TypeOf(*config.UploadableConfig), reflect.ValueOf(config.UploadableConfig).Elem(), true)
+func getReplacer(names map[string]string) *strings.Replacer {
+	if names == nil {
+		return nil
+	}
+	oldNew := make([]string, 0, len(names)*2)
+	for k, v := range names {
+		oldNew = append(oldNew, "{"+k+"}")
+		oldNew = append(oldNew, v)
+	}
+
+	return strings.NewReplacer(oldNew...)
 }
 
-//FlagBroker flags broker
-func FlagBroker(config *UploadFileConfig) {
-	initConfigValues(reflect.TypeOf(*config.BrokerConfig), reflect.ValueOf(config.BrokerConfig).Elem(), true)
-}
-
-//FlagLogger flags logger
-func FlagLogger(config *UploadFileConfig) {
-	initConfigValues(reflect.TypeOf(*config.LogConfig), reflect.ValueOf(config.LogConfig).Elem(), true)
-}
-
-//GetUploadFileConfigDefaults returns new *UploadFileConfig with default values set.
-func GetUploadFileConfigDefaults() *UploadFileConfig {
-	brokerConfig := client.BrokerConfig{}
-	uploadConfig := client.UploadableConfig{}
-	logConfig := logger.LogConfig{}
-	initConfigValues(reflect.TypeOf(brokerConfig), reflect.ValueOf(&brokerConfig).Elem(), false)
-	initConfigValues(reflect.TypeOf(uploadConfig), reflect.ValueOf(&uploadConfig).Elem(), false)
-	initConfigValues(reflect.TypeOf(logConfig), reflect.ValueOf(&logConfig).Elem(), false)
-	return &UploadFileConfig{&brokerConfig, &uploadConfig, &logConfig, DefaultFiles}
-}
-
-//SetBrokerConfig sets BrokerConfig values from file config
-func SetBrokerConfig(def *UploadFileConfig, brokerConfig *client.BrokerConfig) {
-	copyConfigData(def.BrokerConfig, brokerConfig)
-}
-
-//SetUploadableConfig sets UploadableConfig from file config
-func SetUploadableConfig(def *UploadFileConfig, uploadConfig *client.UploadableConfig) {
-	copyConfigData(def.UploadableConfig, uploadConfig)
-}
-
-//SetLoggerConfig sets LogConfig from file config
-func SetLoggerConfig(def *UploadFileConfig, logConfig *logger.LogConfig) {
-	copyConfigData(def.LogConfig, logConfig)
+//InitConfigDefaults sets the default field values of the passed config.
+//The 'cfg' should be a pointer to config. Default values are extracted from 'def' field tags
+func InitConfigDefaults(cfg interface{}, mapping map[string]string, skip map[string]bool) {
+	initConfigValues(reflect.ValueOf(cfg).Elem(), mapping, skip, false)
 }
 
 //LoadJSON loads a json file from path into a given interface
@@ -255,32 +241,16 @@ func LoadJSON(file string, v interface{}) error {
 	return err
 }
 
-func copyConfigData(sourceConfig interface{}, targetConfig interface{}) {
-	source := reflect.ValueOf(sourceConfig).Elem()
-	target := reflect.ValueOf(targetConfig).Elem()
-	typeOfSource := source.Type()
-	for i := 0; i < source.NumField(); i++ {
-		fieldTarget := target.FieldByName(typeOfSource.Field(i).Name)
-		fieldTarget.Set(reflect.ValueOf(source.Field(i).Interface()))
-	}
-}
-
-func toLower(s string) string {
+//ToFlagName converts config structure field name to command-line flag name
+func ToFlagName(s string) string {
 	rn := []rune(s)
 	rn[0] = unicode.ToLower(rn[0])
 	return string(rn)
 }
 
-func toUpper(s string) string {
+//ToFieldName converts command-line flag name to config structure field name
+func ToFieldName(s string) string {
 	rn := []rune(s)
 	rn[0] = unicode.ToUpper(rn[0])
 	return string(rn)
-}
-
-func copyFieldIfExists(name string, source, target reflect.Value) bool {
-	if field := target.FieldByName(name); field != reflect.Zero(reflect.TypeOf(field)).Interface() {
-		field.Set(reflect.ValueOf(source.FieldByName(name).Interface()))
-		return true
-	}
-	return false
 }

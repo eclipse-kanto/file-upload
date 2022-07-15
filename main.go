@@ -26,10 +26,10 @@ import (
 var version = "dev"
 
 func main() {
-	brokerCfg, uploadCfg, logCfg, filesGlob, warn := flags.ParseFlags(version)
+	config, warn := flags.ParseFlags(version)
 
-	uploadCfg.Validate()
-	loggerOut, err := logger.SetupLogger(logCfg)
+	config.Validate()
+	loggerOut, err := logger.SetupLogger(&config.LogConfig)
 	if err != nil {
 		log.Fatalln("Failed to initialize logger: ", err)
 	}
@@ -39,11 +39,11 @@ func main() {
 		logger.Warning(warn)
 	}
 
-	logger.Infof("files glob: '%s'", filesGlob)
-	logger.Infof("uploadable config: %+v", uploadCfg)
-	logger.Infof("log config: %+v", logCfg)
+	logger.Infof("files glob: '%s'", config.Files)
+	logger.Infof("uploadable config: %+v", config.UploadableConfig)
+	logger.Infof("log config: %+v", config.LogConfig)
 
-	chCfg, broker, err := client.FetchEdgeConfiguration(brokerCfg)
+	chCfg, broker, err := client.FetchEdgeConfiguration(&config.BrokerConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +63,7 @@ func main() {
 		edgeCfg = cfg
 	}
 
-	uploadable, err := client.NewFileUpload(filesGlob, broker, edgeCfg, uploadCfg)
+	uploadable, err := client.NewFileUpload(config.Files, broker, edgeCfg, &config.UploadableConfig)
 	if err != nil {
 		panic(err)
 	}
