@@ -33,13 +33,13 @@ type FileUpload struct {
 }
 
 // NewFileUpload construct FileUpload from the provided configurations
-func NewFileUpload(filesGlob string, mode AccessMode, mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploadableCfg *UploadableConfig) (*FileUpload, error) {
+func NewFileUpload(filesGlob string, mode AccessMode, uploadableCfg *UploadableConfig) (*FileUpload, error) {
 	result := &FileUpload{}
 
 	result.filesGlob = filesGlob
 	result.mode = mode
 
-	uploadable, err := NewAutoUploadable(mqttClient, edgeCfg, uploadableCfg, result,
+	uploadable, err := NewAutoUploadable(uploadableCfg, result,
 		"com.bosch.iot.suite.manager.upload:AutoUploadable:1.0.0", "com.bosch.iot.suite.manager.upload:Uploadable:1.0.0")
 
 	if err != nil {
@@ -52,8 +52,8 @@ func NewFileUpload(filesGlob string, mode AccessMode, mqttClient MQTT.Client, ed
 }
 
 // Connect connects the FileUpload feature to the Ditto endpoint
-func (fu *FileUpload) Connect() error {
-	return fu.uploadable.Connect()
+func (fu *FileUpload) Connect(client MQTT.Client, edgeCfg *EdgeConfiguration) {
+	fu.uploadable.Connect(client, edgeCfg)
 }
 
 // Disconnect disconnects the FileUpload feature to the Ditto endpoint

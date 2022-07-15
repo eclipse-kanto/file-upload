@@ -223,10 +223,10 @@ func newConnectedFileUpload(t *testing.T, filesGlob string, mode AccessMode) (*F
 	edgeCfg := &EdgeConfiguration{DeviceID: namespace + ":" + deviceID, TenantID: "testTenantID", PolicyID: "testPolicyID"}
 
 	var err error
-	u, err := NewFileUpload(filesGlob, mode, client, edgeCfg, testCfg)
+	u, err := NewFileUpload(filesGlob, mode, testCfg)
 	assertNoError(t, err)
 
-	err = u.Connect()
+	u.Connect(client, edgeCfg)
 	assertNoError(t, err)
 
 	v := client.twinMsg(t, modify)

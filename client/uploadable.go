@@ -131,27 +131,11 @@ func (cfg *UploadableConfig) Validate() {
 }
 
 // NewAutoUploadable constructs AutoUploadable from the provided configurations
-func NewAutoUploadable(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploadableCfg *UploadableConfig, handler UploadCustomizer, definitions ...string) (*AutoUploadable, error) {
+func NewAutoUploadable(uploadableCfg *UploadableConfig, handler UploadCustomizer, definitions ...string) (*AutoUploadable, error) {
 	result := &AutoUploadable{}
 
 	result.customizer = handler
 	result.definitions = definitions
-
-	config := ditto.NewConfiguration().
-		WithDisconnectTimeout(defaultDisconnectTimeout).
-		WithConnectHandler(
-			func(client *ditto.Client) {
-				result.connectHandler(client)
-			})
-
-	var err error
-	result.client, err = ditto.NewClientMqtt(mqttClient, config)
-	if err != nil {
-		return nil, err
-	}
-
-	result.deviceID = edgeCfg.DeviceID
-	result.tenantID = edgeCfg.TenantID
 
 	result.cfg = uploadableCfg
 	result.uidCounter = time.Now().Unix()
@@ -166,33 +150,54 @@ func NewAutoUploadable(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploa
 
 	result.uploads = NewUploads()
 
-	result.client.Subscribe(func(requestID string, msg *protocol.Envelope) {
-		go result.messageHandler(requestID, msg)
-	})
-
 	return result, nil
 }
 
 // Connect AutoUploadable to the Ditto endpoint
-func (u *AutoUploadable) Connect() error {
+func (u *AutoUploadable) Connect(mqttClient MQTT.Client, edgeCfg *EdgeConfiguration) {
+	u.deviceID = edgeCfg.DeviceID
+	u.tenantID = edgeCfg.TenantID
+
+	config := ditto.NewConfiguration().
+		WithDisconnectTimeout(defaultDisconnectTimeout).
+		WithConnectHandler(
+			func(client *ditto.Client) {
+				u.connectHandler(client)
+			})
+
+	var err error
+	if u.client, err = ditto.NewClientMqtt(mqttClient, config); err != nil {
+		logger.Error(err)
+		return
+	}
+
+	u.client.Subscribe(func(requestID string, msg *protocol.Envelope) {
+		go u.messageHandler(requestID, msg)
+	})
+
+	if err := u.client.Connect(); err != nil {
+		logger.Error(err)
+	}
+
 	u.statusEvents.start(func(e interface{}) {
 		u.UpdateProperty(lastUploadProperty, e)
 	})
 
-	return u.client.Connect()
+	logger.Info("ditto client connected")
 }
 
 // Disconnect AutoUploadable from the Ditto endpoint and clean up used resources
 func (u *AutoUploadable) Disconnect() {
 	u.statusEvents.stop()
 
+	u.client.Disconnect()
 	u.client.Unsubscribe()
 
 	u.stopExecutor() //stop periodic triggers
 
 	u.uploads.Stop(time.Duration(u.cfg.StopTimeout)) // stop active uploads
 
-	u.client.Disconnect()
+	logger.Info("ditto client disconnected")
 }
 
 func (u *AutoUploadable) connectHandler(client *ditto.Client) {

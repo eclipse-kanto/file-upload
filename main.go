@@ -43,39 +43,22 @@ func main() {
 	logger.Infof("uploadable config: %+v", config.UploadableConfig)
 	logger.Infof("log config: %+v", config.LogConfig)
 
-	chCfg, broker, err := client.FetchEdgeConfiguration(&config.BrokerConfig)
-	if err != nil {
-		panic(err)
-	}
-
 	chstop := make(chan os.Signal, 1)
 	signal.Notify(chstop, syscall.SIGINT, syscall.SIGTERM)
 
 	fmt.Println("Press Ctrl+C to exit.")
 
-	var edgeCfg *client.EdgeConfiguration
-
-	select {
-	case <-chstop:
-		broker.Disconnect(200)
-		return
-	case cfg := <-chCfg:
-		edgeCfg = cfg
-	}
-
-	uploadable, err := client.NewFileUpload(config.Files, config.Mode, broker, edgeCfg, &config.UploadableConfig)
+	uploadable, err := client.NewFileUpload(config.Files, config.Mode, &config.UploadableConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := uploadable.Connect(); err != nil {
+	p, err := client.NewEdgeConnector(&config.BrokerConfig, uploadable)
+	if err != nil {
 		panic(err)
 	}
 
-	defer func() {
-		uploadable.Disconnect()
-		logger.Info("disconnected from MQTT broker")
-	}()
+	defer p.Close()
 
 	<-chstop
 }
