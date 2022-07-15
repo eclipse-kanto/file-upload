@@ -1,5 +1,6 @@
 {
   "files": "test",
+  "mode": "strict",
   "broker": "testBroker",
   "username": "testUsername",
   "password": "testPassword",

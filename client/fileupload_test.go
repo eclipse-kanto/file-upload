@@ -63,10 +63,76 @@ func TestUpload(t *testing.T) {
 	a, b, _, _ := getTestFiles(t)
 	glob := filepath.Join(basedir, "*.txt")
 
-	f, client := newConnectedFileUpload(t, glob)
+	f, client := newConnectedFileUpload(t, glob, ModeStrict)
 	defer f.Disconnect()
 
 	checkUploadTrigger(t, f, client, nil, a, b)
+}
+
+func TestUploadModeStrict(t *testing.T) {
+	setUp(t)
+	defer tearDown(t)
+
+	a, b, _, _ := getTestFiles(t)
+
+	glob := filepath.Join(basedir, "*.txt")
+
+	f, client := newConnectedFileUpload(t, glob, ModeStrict)
+	defer f.Disconnect()
+
+	checkUploadTrigger(t, f, client, nil, a, b)
+
+	dynamicGlob := filepath.Join(basedir, "*.dat")
+	options := map[string]string{uploadFilesProperty: dynamicGlob}
+	err := f.DoTrigger("testCorrelationID", options)
+	assertError(t, err)
+}
+
+func TestUploadModeScoped(t *testing.T) {
+	setUp(t)
+	defer tearDown(t)
+
+	a, b, _, _ := getTestFiles(t)
+	a1 := addTestFile(t, "a1.txt")
+	b1 := addTestFile(t, "b1.txt")
+
+	glob := filepath.Join(basedir, "*.txt")
+
+	f, client := newConnectedFileUpload(t, glob, ModeScoped)
+	defer f.Disconnect()
+
+	checkUploadTrigger(t, f, client, nil, a, b, a1, b1)
+
+	dynamicGlob := filepath.Join(basedir, "?1.txt")
+	options := map[string]string{uploadFilesProperty: dynamicGlob}
+	checkUploadTrigger(t, f, client, options, a1, b1)
+
+	options[uploadFilesProperty] = filepath.Join(basedir, "*.dat")
+	err := f.DoTrigger("testCorrelationID", options)
+	assertError(t, err)
+}
+
+func TestUploadModeLax(t *testing.T) {
+	setUp(t)
+	defer tearDown(t)
+
+	a, b, c, d := getTestFiles(t)
+
+	f, client := newConnectedFileUpload(t, "", ModeLax)
+	defer f.Disconnect()
+
+	options := make(map[string]string)
+	options[uploadFilesProperty] = filepath.Join(basedir, "*.txt")
+	checkUploadTrigger(t, f, client, options, a, b)
+
+	options[uploadFilesProperty] = filepath.Join(basedir, "*.dat")
+	checkUploadTrigger(t, f, client, options, c, d)
+
+	x := addTestFile(t, "sub/x.one")
+	y := addTestFile(t, "sub/y.two")
+
+	options[uploadFilesProperty] = filepath.Join(basedir, "sub/*.*")
+	checkUploadTrigger(t, f, client, options, x, y)
 }
 
 func TestUploadDynamicGlob(t *testing.T) {
@@ -76,7 +142,7 @@ func TestUploadDynamicGlob(t *testing.T) {
 	a, b, c, d := getTestFiles(t)
 	glob := filepath.Join(basedir, "*.txt")
 
-	f, client := newConnectedFileUpload(t, glob)
+	f, client := newConnectedFileUpload(t, glob, ModeLax)
 	defer f.Disconnect()
 
 	checkUploadTrigger(t, f, client, nil, a, b)
@@ -90,7 +156,7 @@ func TestUploadDynamicGlob(t *testing.T) {
 }
 
 func TestUploadDynamicGlobError(t *testing.T) {
-	f, _ := newConnectedFileUpload(t, "")
+	f, _ := newConnectedFileUpload(t, "", ModeLax)
 	defer f.Disconnect()
 
 	var err error
@@ -147,7 +213,7 @@ func addTestFile(t *testing.T, path string) string {
 	return path
 }
 
-func newConnectedFileUpload(t *testing.T, filesGlob string) (*FileUpload, *mockedClient) {
+func newConnectedFileUpload(t *testing.T, filesGlob string, mode AccessMode) (*FileUpload, *mockedClient) {
 	testCfg = &UploadableConfig{}
 	testCfg.Name = featureID
 	testCfg.Type = "test_type"
@@ -157,7 +223,7 @@ func newConnectedFileUpload(t *testing.T, filesGlob string) (*FileUpload, *mocke
 	edgeCfg := &EdgeConfiguration{DeviceID: namespace + ":" + deviceID, TenantID: "testTenantID", PolicyID: "testPolicyID"}
 
 	var err error
-	u, err := NewFileUpload(filesGlob, client, edgeCfg, testCfg)
+	u, err := NewFileUpload(filesGlob, mode, client, edgeCfg, testCfg)
 	assertNoError(t, err)
 
 	err = u.Connect()
@@ -246,7 +312,7 @@ func (client *mockedClient) msg(t *testing.T, channel string, action string) map
 		assertEquals(t, deviceID, env.Topic.EntityID)
 		assertEquals(t, action, string(env.Topic.Action))
 
-		// Valdiate its starting path.
+		// Validate its starting path.
 		prefix := "/features/" + featureID
 		if !strings.HasPrefix(env.Path, prefix) {
 			t.Fatalf("message path do not starts with [%v]: %v", prefix, env.Path)
