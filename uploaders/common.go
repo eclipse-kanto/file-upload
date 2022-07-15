@@ -13,16 +13,22 @@ package uploaders
 
 import (
 	"crypto/md5"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+
+	"github.com/eclipse-kanto/file-upload/logger"
 )
 
-// Constants for HTTP file upload 'start' operation options
+// Constants for HTTP(S) file upload 'start' operation options
 const (
 	StorageProviderHTTP = "generic"
 
@@ -43,13 +49,15 @@ type Uploader interface {
 
 // HTTPUploader handles generic HTTP uploads
 type HTTPUploader struct {
-	url     string
-	headers map[string]string
-	method  string
+	url          string
+	headers      map[string]string
+	method       string
+	serverCert   string
+	cipherSuites []uint16
 }
 
 // NewHTTPUploader construct new HttpUploader from the provided 'start' operation options
-func NewHTTPUploader(options map[string]string) (Uploader, error) {
+func NewHTTPUploader(options map[string]string, serverCert string) (Uploader, error) {
 	url := options[URLProp]
 	if url == "" {
 		return nil, errors.New("upload URL not specified")
@@ -68,7 +76,31 @@ func NewHTTPUploader(options map[string]string) (Uploader, error) {
 
 	headers := ExtractDictionary(options, HeadersPrefix)
 
-	return &HTTPUploader{url, headers, method}, nil
+	return &HTTPUploader{url, headers, method, serverCert, supportedCipherSuites()}, nil
+}
+
+func (u *HTTPUploader) getHTTPTransport() (*http.Transport, error) {
+	var caCertPool *x509.CertPool
+	if len(u.serverCert) > 0 {
+		caCert, err := ioutil.ReadFile(u.serverCert)
+		if err != nil {
+			logger.Errorf("Error reading CA certificate file - \"%s\"", u.serverCert)
+			return nil, err
+		}
+		caCertPool = x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+	}
+
+	config := &tls.Config{ // using the system CA pool
+		InsecureSkipVerify: false,
+		RootCAs:            caCertPool,
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		CipherSuites:       u.cipherSuites,
+	}
+	return &http.Transport{
+		TLSClientConfig: config,
+	}, nil
 }
 
 // UploadFile performs generic HTTP file upload
@@ -81,6 +113,15 @@ func (u *HTTPUploader) UploadFile(file *os.File, useChecksum bool, listener func
 	req, err := http.NewRequest(u.method, u.url, file)
 	if err != nil {
 		return err
+	}
+
+	parsedURL, _ := url.Parse(u.url) // MUST not return error, since http(s) request was done to that url
+	transport := &http.Transport{}
+	if parsedURL.Scheme == "https" {
+		transport, err = u.getHTTPTransport()
+		if err != nil {
+			return err
+		}
 	}
 
 	req.Header.Set("Content-Type", "application/x-binary")
@@ -97,7 +138,9 @@ func (u *HTTPUploader) UploadFile(file *os.File, useChecksum bool, listener func
 	}
 
 	req.ContentLength = stats.Size()
-	resp, err := http.DefaultClient.Do(req)
+	// Send the HTTP(S) request and get its response.
+	client := &http.Client{Transport: transport}
+	resp, err := client.Do(req)
 
 	if err != nil {
 		return err
@@ -145,4 +188,13 @@ func ComputeMD5(f *os.File, encodeBase64 bool) (string, error) {
 	encoded := base64.StdEncoding.EncodeToString(md5)
 
 	return encoded, nil
+}
+
+func supportedCipherSuites() []uint16 {
+	cs := tls.CipherSuites()
+	cid := make([]uint16, len(cs))
+	for i := range cs {
+		cid[i] = cs[i].ID
+	}
+	return cid
 }

@@ -12,6 +12,8 @@
 package client
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -125,7 +127,7 @@ func TestRemoveChild(t *testing.T) {
 	us := NewUploads()
 
 	paths := []string{"t1.txt", "t2.txt"}
-	ids := us.AddMulti("testUID", paths, false, false, NewTestStatusListener(t))
+	ids := us.AddMulti("testUID", paths, false, false, "", NewTestStatusListener(t))
 
 	for i, id := range ids {
 		u := us.Get(id)
@@ -147,7 +149,7 @@ func TestRemoveParent(t *testing.T) {
 	paths := []string{"t1.txt", "t2.txt"}
 
 	const parentID = "testUID"
-	ids := us.AddMulti(parentID, paths, false, false, NewTestStatusListener(t))
+	ids := us.AddMulti(parentID, paths, false, false, "", NewTestStatusListener(t))
 
 	us.Remove(parentID)
 
@@ -162,19 +164,35 @@ func TestRemoveParent(t *testing.T) {
 	}
 }
 
-func TestSuccess(t *testing.T) {
+func TestSuccessHTTP(t *testing.T) {
+	testSuccessfulUpload(t, false)
+}
+
+func TestSuccessHTTPS(t *testing.T) {
+	testSuccessfulUpload(t, true)
+}
+
+func testSuccessfulUpload(t *testing.T, secure bool) {
 	files := createTestFiles(t, 3, false, false)
 	defer cleanFiles(files)
 
-	server := startTestServer(t, 0)
-
+	server := startTestServer(t, 0, secure)
 	defer server.Close()
+
+	serverCert := ""
+	if secure {
+		cert, files, err := getTestServerSecureConfig(server)
+		assertNoError(t, err)
+		defer cleanFiles(files)
+
+		serverCert = cert
+	}
 
 	us := NewUploads()
 	paths := getPaths(files)
 
 	l := NewTestStatusListener(t)
-	ids := us.AddMulti("testUID", paths, true, false, l)
+	ids := us.AddMulti("testUID", paths, true, false, serverCert, l)
 
 	startUploads(t, us, ids, server.URL)
 
@@ -191,6 +209,59 @@ func TestSuccess(t *testing.T) {
 	}
 }
 
+func TestUploadStatusOrder(t *testing.T) {
+	cond := sync.NewCond(&sync.Mutex{})
+	var finished bool
+	var wrongStatusMsg string
+	var lastUploadProgress int
+	u := AutoUploadable{}
+
+	u.statusEvents = newStatusEventsConsumer(100)
+	u.statusEvents.start(func(e interface{}) {
+		status := e.(UploadStatus)
+		if status.Progress < lastUploadProgress {
+			wrongStatusMsg = fmt.Sprintf("Upload progress value decreased(%d -> %d)", status.Progress, lastUploadProgress)
+		}
+		lastUploadProgress = status.Progress
+
+		cond.L.Lock()
+		defer cond.L.Unlock()
+
+		if status.finished() {
+			if status.State != StateSuccess {
+				wrongStatusMsg = fmt.Sprintf("Upload failed with status %v", status)
+			}
+			finished = true
+			cond.Signal()
+		} else if finished {
+			wrongStatusMsg = fmt.Sprintf("Received upload status %v after success", status)
+		}
+
+	})
+	defer u.statusEvents.stop()
+
+	files := createTestFiles(t, 60, true, false)
+	defer cleanFiles(files)
+
+	server := startTestServer(t, 0, false)
+	defer server.Close()
+
+	us := NewUploads()
+	paths := getPaths(files)
+	ids := us.AddMulti("testUID", paths, true, false, "", &u)
+	startUploads(t, us, ids, server.URL)
+
+	cond.L.Lock()
+	for !finished {
+		cond.Wait()
+	}
+	cond.L.Unlock()
+
+	if wrongStatusMsg != "" {
+		t.Error(wrongStatusMsg)
+	}
+}
+
 func TestFailure(t *testing.T) {
 	files := createTestFiles(t, 5, false, false)
 	defer cleanFiles(files)
@@ -199,11 +270,11 @@ func TestFailure(t *testing.T) {
 	paths := getPaths(files)
 	paths[2] = "non-existing.grbg" //replace with non-existing file
 
-	server := startTestServer(t, 0)
+	server := startTestServer(t, 0, false)
 	defer server.Close()
 
 	l := NewTestStatusListener(t)
-	ids := us.AddMulti("testUID", paths, true, false, l)
+	ids := us.AddMulti("testUID", paths, true, false, "", l)
 
 	startUploads(t, us, ids, server.URL)
 
@@ -218,12 +289,12 @@ func TestCancel(t *testing.T) {
 	files := createTestFiles(t, filesCount, false, false)
 	defer cleanFiles(files)
 
-	server := startTestServer(t, 50*time.Millisecond)
+	server := startTestServer(t, 50*time.Millisecond, false)
 	defer server.Close()
 
 	us := NewUploads()
 	l := NewTestStatusListener(t)
-	ids := us.AddMulti("testUID", getPaths(files), true, false, l)
+	ids := us.AddMulti("testUID", getPaths(files), true, false, "", l)
 
 	startUploads(t, us, ids, server.URL)
 
@@ -253,7 +324,7 @@ func TestGracefulShutdown(t *testing.T) {
 	defer cleanFiles(files)
 
 	delay := 1 * time.Second
-	server := startTestServer(t, delay)
+	server := startTestServer(t, delay, false)
 
 	defer server.Close()
 
@@ -262,7 +333,7 @@ func TestGracefulShutdown(t *testing.T) {
 
 	const parentID = "testUID"
 	l := NewTestStatusListener(t)
-	ids := us.AddMulti(parentID, paths, false, false, l)
+	ids := us.AddMulti(parentID, paths, false, false, "", l)
 
 	startUploads(t, us, ids, server.URL)
 
@@ -279,7 +350,7 @@ func TestGracefulShutdown(t *testing.T) {
 
 func TestProvidersErrors(t *testing.T) {
 	us := NewUploads()
-	ids := us.AddMulti("testUID", []string{"test.txt"}, false, false, nil)
+	ids := us.AddMulti("testUID", []string{"test.txt"}, false, false, "", nil)
 
 	u := us.Get(ids[0])
 
@@ -301,8 +372,55 @@ func TestProvidersErrors(t *testing.T) {
 	}
 }
 
-func startTestServer(t *testing.T, delay time.Duration) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func getTestServerSecureConfig(server *httptest.Server) (string, []*os.File, error) {
+	if server.TLS == nil {
+		return "", nil, fmt.Errorf("no TLS configuration for test HTTPS server")
+	}
+	if len(server.TLS.Certificates) == 0 {
+		return "", nil, fmt.Errorf("no TLS certificates for test HTTPS server")
+	}
+
+	serverCert := "testCert"
+
+	files := make([]*os.File, 2)
+	certFile, err := os.Create(serverCert)
+	if err != nil {
+		return "", nil, err
+	}
+	files[0] = certFile
+
+	keyFile, err := os.Create("testKey")
+	if err != nil {
+		return "", files, err
+	}
+	files[1] = keyFile
+
+	cert := server.TLS.Certificates[0]
+	pk, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
+	if err != nil {
+		return "", files, err
+	}
+
+	pemdataCert := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: cert.Certificate[0],
+		},
+	)
+	pemdataKey := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: pk,
+		},
+	)
+	certFile.Write(pemdataCert)
+	keyFile.Write(pemdataKey)
+
+	return serverCert, files, nil
+}
+
+func startTestServer(t *testing.T, delay time.Duration, secure bool) *httptest.Server {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		time.Sleep(delay)
@@ -310,7 +428,11 @@ func startTestServer(t *testing.T, delay time.Duration) *httptest.Server {
 		if _, err := ioutil.ReadAll(r.Body); err != nil {
 			t.Log(err)
 		}
-	}))
+	})
+	if secure {
+		return httptest.NewTLSServer(handler)
+	}
+	return httptest.NewServer(handler)
 }
 
 func startUploads(t *testing.T, us *Uploads, ids []string, url string) {
@@ -373,8 +495,10 @@ func getPaths(files []*os.File) []string {
 
 func cleanFiles(files []*os.File) {
 	for _, f := range files {
-		report(f.Close())
-		report(os.Remove(f.Name()))
+		if f != nil {
+			report(f.Close())
+			report(os.Remove(f.Name()))
+		}
 	}
 }
 

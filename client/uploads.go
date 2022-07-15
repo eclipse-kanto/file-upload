@@ -60,6 +60,8 @@ type MultiUpload struct {
 	deleteUploaded bool
 	useChecksum    bool
 
+	serverCert string
+
 	uploads *Uploads
 
 	status   *UploadStatus
@@ -130,13 +132,14 @@ func NewUploads() *Uploads {
 // AddMulti is used to add an upload, containing multiple files. The provided listener will be notified on the upload progress.
 // If deleteUploaded is true, files will be deleted after successful upload.
 func (us *Uploads) AddMulti(correlationID string, paths []string, deleteUploaded bool, useChecksum bool,
-	listener UploadStatusListener) []string {
+	serverCert string, listener UploadStatusListener) []string {
 
 	m := &MultiUpload{}
 	m.correlationID = correlationID
 	m.listener = listener
 	m.deleteUploaded = deleteUploaded
 	m.useChecksum = useChecksum
+	m.serverCert = serverCert
 	m.totalCount = len(paths)
 	m.children = make(map[string]*SingleUpload)
 	m.uploads = us
@@ -473,7 +476,7 @@ func (u *SingleUpload) String() string {
 }
 
 func (u *SingleUpload) start(options map[string]string) error {
-	uploader, err := getUploader(options)
+	uploader, err := getUploader(options, u.parent.serverCert)
 
 	if err != nil {
 		return err
@@ -546,13 +549,13 @@ func (u *SingleUpload) start(options map[string]string) error {
 	return nil
 }
 
-func getUploader(options map[string]string) (uploaders.Uploader, error) {
+func getUploader(options map[string]string, serverCert string) (uploaders.Uploader, error) {
 	storage, ok := options[StorageProvider]
 
 	storage = strings.ToLower(storage)
 
 	if !ok || storage == uploaders.StorageProviderHTTP {
-		return uploaders.NewHTTPUploader(options)
+		return uploaders.NewHTTPUploader(options, serverCert)
 	} else if storage == uploaders.StorageProviderAWS {
 		return uploaders.NewAWSUploader(options)
 	} else if storage == uploaders.StorageProviderAzure {

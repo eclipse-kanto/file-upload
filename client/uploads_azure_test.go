@@ -38,7 +38,7 @@ func testAzureUpload(t *testing.T, emptyFiles bool) {
 	l := NewTestStatusListener(t)
 	paths := getPaths(files)
 
-	ids := uploads.AddMulti("upload-test-azure", paths, true, false, l)
+	ids := uploads.AddMulti("upload-test-azure", paths, true, false, "", l)
 	for ind, id := range ids {
 		if u := uploads.Get(id); u != nil {
 			err := u.start(options)
