@@ -13,6 +13,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"path/filepath"
 
@@ -26,15 +27,17 @@ const uploadFilesProperty = "upload.files"
 // AutoUploadable ss performing all communication with the backend, FileUpload only specifies the files to be uploaded.
 type FileUpload struct {
 	filesGlob string
+	mode      AccessMode
 
 	uploadable *AutoUploadable
 }
 
 // NewFileUpload construct FileUpload from the provided configurations
-func NewFileUpload(filesGlob string, mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploadableCfg *UploadableConfig) (*FileUpload, error) {
+func NewFileUpload(filesGlob string, mode AccessMode, mqttClient MQTT.Client, edgeCfg *EdgeConfiguration, uploadableCfg *UploadableConfig) (*FileUpload, error) {
 	result := &FileUpload{}
 
 	result.filesGlob = filesGlob
+	result.mode = mode
 
 	uploadable, err := NewAutoUploadable(mqttClient, edgeCfg, uploadableCfg, result,
 		"com.bosch.iot.suite.manager.upload:AutoUploadable:1.0.0", "com.bosch.iot.suite.manager.upload:Uploadable:1.0.0")
@@ -65,6 +68,16 @@ func (fu *FileUpload) DoTrigger(correlationID string, options map[string]string)
 
 	if !ok {
 		glob = fu.filesGlob
+	} else {
+		ok, err := fu.isGlobUploadPermitted(glob)
+
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			return fmt.Errorf("uploading '%s' with mode '%s' is not permitted", glob, fu.mode)
+		}
 	}
 
 	if glob == "" {
@@ -100,9 +113,24 @@ func (fu *FileUpload) HandleOperation(operation string, payload []byte) *ErrorRe
 
 // OnTick triggers periodic file uploads. Invoked from the periodic executor in AutoUploadable
 func (fu *FileUpload) OnTick() {
-	err := fu.DoTrigger(fu.uploadable.nextgUID(), nil)
+	err := fu.DoTrigger(fu.uploadable.nextUID(), nil)
 
 	if err != nil {
 		logger.Errorf("error on periodic trigger: %v", err)
+	}
+}
+
+func (fu *FileUpload) isGlobUploadPermitted(glob string) (bool, error) {
+	switch fu.mode {
+	case ModeLax:
+		return true, nil
+	case ModeStrict:
+		return glob == fu.filesGlob, nil
+	case ModeScoped:
+		return filepath.Match(fu.filesGlob, glob)
+	default:
+		logger.Errorf("unexpected file upload mode value: %v", fu.mode)
+
+		return false, nil
 	}
 }

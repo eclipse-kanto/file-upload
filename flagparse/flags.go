@@ -41,17 +41,32 @@ type UploadConfig struct {
 	client.UploadableConfig
 	logger.LogConfig
 
-	Files string `json:"files,omitempty" descr:"Glob pattern for the files to upload"`
+	Files string            `json:"files,omitempty" descr:"Glob pattern for the files to upload"`
+	Mode  client.AccessMode `json:"mode,omitempty" def:"strict" descr:"{mode}"`
 }
 
 //ConfigNames contains template names to be replaced in config properties descriptions and default values
 var ConfigNames = map[string]string{
 	"name": "AutoUploadable", "feature": "Uploadable", "period": "Upload period",
 	"action": "upload", "actions": "uploads", "running_actions": "uploads",
+	"mode": "File access mode. Restricts which files can be requested dynamically for upload through 'upload.files' " +
+		"trigger operation property.\nAllowed values are:" +
+		"\n  'strict' - dynamically specifying files for upload is forbidden, the 'files' property must be used instead" +
+		"\n  'scoped' - allows upload of any files that match the 'files' glob filter" +
+		"\n  'lax' - allows upload of any files the upload process has access to",
 }
 
 //ConfigFileMissing error, which represents a warning for missing config file
 type ConfigFileMissing error
+
+//Validate file upload config
+func (cfg *UploadConfig) Validate() {
+	if cfg.Files == "" && cfg.Mode != client.ModeLax {
+		log.Fatalln("Files glob not specified. To permit unrestricted file upload set 'mode' property to 'lax'.")
+	}
+
+	cfg.UploadableConfig.Validate()
+}
 
 //ParseFlags parses the CLI flags and generates an upload file configuration
 func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {

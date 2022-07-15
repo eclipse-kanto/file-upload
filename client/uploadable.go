@@ -395,7 +395,7 @@ func (u *AutoUploadable) trigger(payload []byte) *ErrorResponse {
 
 	correlationID := params.CorrelationID
 	if correlationID == "" {
-		correlationID = u.nextgUID()
+		correlationID = u.nextUID()
 	}
 
 	err = u.customizer.DoTrigger(correlationID, params.Options)
@@ -501,7 +501,7 @@ func (u *AutoUploadable) stopExecutor() {
 	}
 }
 
-func (u *AutoUploadable) nextgUID() string {
+func (u *AutoUploadable) nextUID() string {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 

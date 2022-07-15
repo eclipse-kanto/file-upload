@@ -39,7 +39,7 @@ func main() {
 		logger.Warning(warn)
 	}
 
-	logger.Infof("files glob: '%s'", config.Files)
+	logger.Infof("files glob: '%s', mode: '%s'", config.Files, config.Mode)
 	logger.Infof("uploadable config: %+v", config.UploadableConfig)
 	logger.Infof("log config: %+v", config.LogConfig)
 
@@ -63,7 +63,7 @@ func main() {
 		edgeCfg = cfg
 	}
 
-	uploadable, err := client.NewFileUpload(config.Files, broker, edgeCfg, &config.UploadableConfig)
+	uploadable, err := client.NewFileUpload(config.Files, config.Mode, broker, edgeCfg, &config.UploadableConfig)
 	if err != nil {
 		panic(err)
 	}
