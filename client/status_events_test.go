@@ -24,8 +24,8 @@ func TestStatusEventsConsumerDelivery(t *testing.T) {
 	act := make([]interface{}, 0)
 	var wg sync.WaitGroup
 
-	statusEvents := newStatusEventsConsumer(count)
-	statusEvents.start(func(e interface{}) {
+	statusEvents := NewStatusEventsConsumer(count)
+	statusEvents.Start(func(e interface{}) {
 		act = append(act, e)
 		wg.Done()
 	})
@@ -34,7 +34,7 @@ func TestStatusEventsConsumerDelivery(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		wg.Add(1)
-		statusEvents.add(i)
+		statusEvents.Add(i)
 		exp[i] = i
 	}
 
@@ -44,14 +44,14 @@ func TestStatusEventsConsumerDelivery(t *testing.T) {
 }
 
 func TestStatusEventsConsumerAdd(t *testing.T) {
-	statusEvents := newStatusEventsConsumer(3)
-	statusEvents.start(func(e interface{}) {
+	statusEvents := NewStatusEventsConsumer(3)
+	statusEvents.Start(func(e interface{}) {
 		time.Sleep(2 * time.Second)
 	})
 
 	start := time.Now()
 	for i := 0; i < 10; i++ {
-		statusEvents.add(i)
+		statusEvents.Add(i)
 	}
 
 	elapsed := time.Since(start)
@@ -63,20 +63,20 @@ func TestStatusEventsConsumerAdd(t *testing.T) {
 
 func TestStatusEventsConsumerClose(t *testing.T) {
 	var counter int32
-	statusEvents := newStatusEventsConsumer(3)
-	statusEvents.start(func(e interface{}) {
+	statusEvents := NewStatusEventsConsumer(3)
+	statusEvents.Start(func(e interface{}) {
 		atomic.AddInt32(&counter, 1)
 	})
 
 	count := 5
 	for i := 0; i < count; i++ {
-		statusEvents.add("a")
+		statusEvents.Add("a")
 	}
 
-	statusEvents.stop()
+	statusEvents.Stop()
 
 	for i := 0; i < 10; i++ {
-		statusEvents.add("b")
+		statusEvents.Add("b")
 	}
 
 	time.Sleep(1 * time.Second)
@@ -92,8 +92,8 @@ func TestStatusEventsConsumerOrdering(t *testing.T) {
 	ls := make([]int, 0, count)
 
 	var wg sync.WaitGroup
-	statusEvents := newStatusEventsConsumer(count)
-	statusEvents.start(func(e interface{}) {
+	statusEvents := NewStatusEventsConsumer(count)
+	statusEvents.Start(func(e interface{}) {
 		ls = append(ls, e.(int))
 		wg.Done()
 	})
@@ -112,7 +112,7 @@ func TestStatusEventsConsumerOrdering(t *testing.T) {
 			defer m.Unlock()
 
 			counter++
-			statusEvents.add(counter)
+			statusEvents.Add(counter)
 		}()
 	}
 	latch.Add(-count)
