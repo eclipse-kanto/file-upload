@@ -34,13 +34,13 @@ func NewStatusEventsConsumer(size int) *StatusEventsConsumer {
 	return consumer
 }
 
-// start event delivery loop.
+// Start event delivery loop.
 func (q *StatusEventsConsumer) Start(consume func(e interface{})) {
 	q.closed = false
 	go q.eventLoop(consume)
 }
 
-// stop event delivery loop.
+// Stop event delivery loop.
 func (q *StatusEventsConsumer) Stop() {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
@@ -50,7 +50,7 @@ func (q *StatusEventsConsumer) Stop() {
 	q.cond.Broadcast()
 }
 
-// add new event to the queue.
+// Add new event to the queue.
 func (q *StatusEventsConsumer) Add(e interface{}) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
