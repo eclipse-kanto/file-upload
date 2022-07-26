@@ -216,8 +216,8 @@ func TestUploadStatusOrder(t *testing.T) {
 	var lastUploadProgress int
 	u := AutoUploadable{}
 
-	u.statusEvents = newStatusEventsConsumer(100)
-	u.statusEvents.start(func(e interface{}) {
+	u.statusEvents = NewStatusEventsConsumer(100)
+	u.statusEvents.Start(func(e interface{}) {
 		status := e.(UploadStatus)
 		if status.Progress < lastUploadProgress {
 			wrongStatusMsg = fmt.Sprintf("Upload progress value decreased(%d -> %d)", status.Progress, lastUploadProgress)
@@ -238,7 +238,7 @@ func TestUploadStatusOrder(t *testing.T) {
 		}
 
 	})
-	defer u.statusEvents.stop()
+	defer u.statusEvents.Stop()
 
 	files := createTestFiles(t, 60, true, false)
 	defer cleanFiles(files)

@@ -15,18 +15,18 @@ import (
 	"sync"
 )
 
-// statusEventsConsumer uses a bounded cyclic events queue, safe for concurrent use.
+// StatusEventsConsumer uses a bounded cyclic events queue, safe for concurrent use.
 // When capacity is reached, oldest events in the queue are replaced by newer ones.
-type statusEventsConsumer struct {
+type StatusEventsConsumer struct {
 	buf *ringBuffer
 
 	closed bool
 	cond   *sync.Cond
 }
 
-// newStatusEventsConsumer constructs a new statusEventsConsumer with the given size.
-func newStatusEventsConsumer(size int) *statusEventsConsumer {
-	consumer := &statusEventsConsumer{}
+// NewStatusEventsConsumer constructs a new StatusEventsConsumer with the given size.
+func NewStatusEventsConsumer(size int) *StatusEventsConsumer {
+	consumer := &StatusEventsConsumer{}
 
 	consumer.buf = newRingBuffer(size)
 	consumer.cond = sync.NewCond(&sync.Mutex{})
@@ -34,14 +34,14 @@ func newStatusEventsConsumer(size int) *statusEventsConsumer {
 	return consumer
 }
 
-// start event delivery loop.
-func (q *statusEventsConsumer) start(consume func(e interface{})) {
+// Start event delivery loop.
+func (q *StatusEventsConsumer) Start(consume func(e interface{})) {
 	q.closed = false
 	go q.eventLoop(consume)
 }
 
-// stop event delivery loop.
-func (q *statusEventsConsumer) stop() {
+// Stop event delivery loop.
+func (q *StatusEventsConsumer) Stop() {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -50,8 +50,8 @@ func (q *statusEventsConsumer) stop() {
 	q.cond.Broadcast()
 }
 
-// add new event to the queue.
-func (q *statusEventsConsumer) add(e interface{}) {
+// Add new event to the queue.
+func (q *StatusEventsConsumer) Add(e interface{}) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -60,7 +60,7 @@ func (q *statusEventsConsumer) add(e interface{}) {
 	q.cond.Broadcast()
 }
 
-func (q *statusEventsConsumer) eventLoop(consume func(e interface{})) {
+func (q *StatusEventsConsumer) eventLoop(consume func(e interface{})) {
 	for {
 		if e, ok := q.get(); ok {
 			consume(e)
@@ -70,7 +70,7 @@ func (q *statusEventsConsumer) eventLoop(consume func(e interface{})) {
 	}
 }
 
-func (q *statusEventsConsumer) get() (interface{}, bool) {
+func (q *StatusEventsConsumer) get() (interface{}, bool) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 

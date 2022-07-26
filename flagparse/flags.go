@@ -77,7 +77,7 @@ func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	printVersion := flag.Bool("version", false, "Prints current version and exits")
 	configFile := flag.String(ConfigFile, "", "Defines the configuration file")
 
-	initFlagVars(flagsConfig, ConfigNames, nil)
+	InitFlagVars(flagsConfig, ConfigNames, nil)
 
 	flag.Parse()
 
@@ -87,8 +87,8 @@ func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	}
 
 	config := &UploadConfig{}
-	warn := loadConfigFromFile(*configFile, config, ConfigNames, nil)
-	applyFlags(config, *flagsConfig)
+	warn := LoadConfigFromFile(*configFile, config, ConfigNames, nil)
+	ApplyFlags(config, *flagsConfig)
 
 	if *dumpFiles {
 		if config.Files == "" {
@@ -105,8 +105,8 @@ func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	return config, warn
 }
 
-// applyFlags applies CLI values over config values
-func applyFlags(config interface{}, flagsConfig interface{}) {
+// ApplyFlags applies CLI values over config values
+func ApplyFlags(config interface{}, flagsConfig interface{}) {
 	srcVal := reflect.ValueOf(flagsConfig)
 	dstVal := reflect.ValueOf(config).Elem()
 	flag.Visit(func(f *flag.Flag) {
@@ -121,20 +121,20 @@ func applyFlags(config interface{}, flagsConfig interface{}) {
 	})
 }
 
-//initFlagVars parses the 'cfg' structure and defines flag variables for its fields.
+//InitFlagVars parses the 'cfg' structure and defines flag variables for its fields.
 //The 'cfg' parameter should be a pointer to structure. Flag names are taken from field names (with the first letter lower cased).
 //The 'names' parameter should be used for generating a strings.Replacer, replacing the keys(surrounded with {}) with their values.
 //The 'skip' parameter lists the flag names, that should not be parsed from configuration.
 //Flag descriptions are taken from 'descr' field tags, default values are taken from 'def' field tags
-func initFlagVars(cfg interface{}, names map[string]string, skip map[string]bool) {
+func InitFlagVars(cfg interface{}, names map[string]string, skip map[string]bool) {
 	initConfigValues(reflect.ValueOf(cfg).Elem(), names, skip, true)
 }
 
-//loadConfigFromFile loads the config from the specified file into the given config structure.
+//LoadConfigFromFile loads the config from the specified file into the given config structure.
 //The 'cfg' parameter should be a pointer to structure
 //The 'names' parameter should be used for generating a strings.Replacer, replacing the keys(surrounded with {}) with their values.
 //The 'skip' parameter lists the flag names, that should not be parsed from configuration.
-func loadConfigFromFile(configFile string, cfg interface{}, names map[string]string, skip map[string]bool) ConfigFileMissing {
+func LoadConfigFromFile(configFile string, cfg interface{}, names map[string]string, skip map[string]bool) ConfigFileMissing {
 	initConfigValues(reflect.ValueOf(cfg).Elem(), names, skip, false)
 
 	var warn ConfigFileMissing
