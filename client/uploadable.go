@@ -44,7 +44,7 @@ const (
 // UploadableConfig contains configuration for the AutoUploadable feature
 type UploadableConfig struct {
 	Name    string   `json:"name,omitempty" def:"{name}" descr:"Name for the {feature} feature.\nShould conform to https://docs.bosch-iot-suite.com/things/basic-concepts/namespace-thing-feature/#characters-allowed-in-a-feature-id"`
-	Context string   `json:"context,omitempty" def:"edge" descr:"ID of the {feature} feature."`
+	Context string   `json:"context,omitempty" def:"edge" descr:"Context of the {feature} feature."`
 	Type    string   `json:"type,omitempty" def:"file" descr:"Type of the {feature} feature."`
 	Period  Duration `json:"period,omitempty" def:"10h" descr:"{period}. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
 
