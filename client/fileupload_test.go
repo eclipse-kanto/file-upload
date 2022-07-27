@@ -215,7 +215,7 @@ func addTestFile(t *testing.T, path string) string {
 
 func newConnectedFileUpload(t *testing.T, filesGlob string, mode AccessMode) (*FileUpload, *mockedClient) {
 	testCfg = &UploadableConfig{}
-	testCfg.Name = featureID
+	testCfg.FeatureID = featureID
 	testCfg.Type = "test_type"
 	testCfg.Context = "test_context"
 
