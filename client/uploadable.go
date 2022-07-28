@@ -174,6 +174,7 @@ func (u *AutoUploadable) Connect(mqttClient MQTT.Client, edgeCfg *EdgeConfigurat
 	u.client.Subscribe(func(requestID string, msg *protocol.Envelope) {
 		go u.messageHandler(requestID, msg)
 	})
+	logger.Info("ditto client subscribed")
 
 	if err := u.client.Connect(); err != nil {
 		logger.Error(err)
@@ -190,8 +191,10 @@ func (u *AutoUploadable) Connect(mqttClient MQTT.Client, edgeCfg *EdgeConfigurat
 func (u *AutoUploadable) Disconnect() {
 	u.statusEvents.Stop()
 
-	u.client.Disconnect()
 	u.client.Unsubscribe()
+	logger.Info("ditto client unsubscribed")
+	u.client.Disconnect()
+	logger.Info("ditto client disconnected")
 
 	u.stopExecutor() //stop periodic triggers
 
