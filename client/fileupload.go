@@ -108,7 +108,7 @@ func (fu *FileUpload) DoTrigger(correlationID string, options map[string]string)
 // HandleOperation is invoked from the base AutoUploadable feature to handle unknown operations.
 // FileUpload returns error, because it does not add any new operations to the AutoUploadable feature
 func (fu *FileUpload) HandleOperation(operation string, payload []byte) *ErrorResponse {
-	return &ErrorResponse{http.StatusBadRequest, "Unsupported operation: " + operation}
+	return &ErrorResponse{http.StatusBadRequest, ErrorCodeExecutionFailed, "Unsupported operation: " + operation}
 }
 
 // OnTick triggers periodic file uploads. Invoked from the periodic executor in AutoUploadable
