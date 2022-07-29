@@ -106,13 +106,13 @@ const (
 
 //ErrorResponse is returned from operations handling functions
 type ErrorResponse struct {
-	Status  int       `json:"status"`
-	Code    ErrorCode `json:"error"`
-	Message string    `json:"message"`
+	Status    int       `json:"status"`
+	ErrorCode ErrorCode `json:"error"`
+	Message   string    `json:"message"`
 }
 
 func (e *ErrorResponse) Error() string {
-	return fmt.Sprintf("error response [status=%d, code=%v, msg=%s]", e.Status, e.Code, e.Message)
+	return fmt.Sprintf("error response [status=%d, error code=%v, msg=%s]", e.Status, e.ErrorCode, e.Message)
 }
 
 // UploadCustomizer is used to customize AutoUploadable behavior.
@@ -316,7 +316,7 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 
 	reply := &protocol.Envelope{
 		Topic:   msg.Topic,                                           // preserve the topic
-		Headers: headers,                                             // preserve the headers
+		Headers: headers,                                             // add the derived headers
 		Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1), // switch to outbox
 		Value:   message,                                             // fill the response value
 		Status:  status,                                              // set the response status
