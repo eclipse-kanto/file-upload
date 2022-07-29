@@ -95,10 +95,24 @@ type AutoUploadable struct {
 	mutex    sync.Mutex
 }
 
+//ErrorCode for Ditto error response
+type ErrorCode string
+
+//Error code constants
+const (
+	ErrorCodeParameterInvalid ErrorCode = "messages:parameter.invalid"
+	ErrorCodeExecutionFailed            = "messages:execution.failed"
+)
+
 //ErrorResponse is returned from operations handling functions
 type ErrorResponse struct {
-	Status  int
-	Message string
+	Status    int       `json:"status"`
+	ErrorCode ErrorCode `json:"error"`
+	Message   string    `json:"message"`
+}
+
+func (e *ErrorResponse) Error() string {
+	return fmt.Sprintf("error response [status=%d, error code=%v, msg=%s]", e.Status, e.ErrorCode, e.Message)
 }
 
 // UploadCustomizer is used to customize AutoUploadable behavior.
@@ -242,10 +256,6 @@ func (u *AutoUploadable) sendUploadRequest(correlationID string, options map[str
 	}
 }
 
-func (e *ErrorResponse) Error() string {
-	return fmt.Sprintf("error response [code=%d, msg=%s]", e.Status, e.Message)
-}
-
 // messageHandler should be called in separate go routine for each request
 func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope) {
 	if !strings.HasPrefix(msg.Path, "/features/"+u.cfg.Name) {
@@ -299,14 +309,17 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 
 	if responseError != nil {
 		status = responseError.Status
-		message = responseError.Message
+		message = responseError
 
 		logger.Errorf("error while executing operation %s: %s", operation, responseError.Message)
 	}
 
+	headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
+		protocol.WithContentType("application/json"))
+
 	reply := &protocol.Envelope{
 		Topic:   msg.Topic,                                           // preserve the topic
-		Headers: msg.Headers,                                         // preserve the headers
+		Headers: headers,                                             // add the derived headers
 		Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1), // switch to outbox
 		Value:   message,                                             // fill the response value
 		Status:  status,                                              // set the response status
@@ -354,12 +367,12 @@ func (u *AutoUploadable) activate(payload []byte) *ErrorResponse {
 	err := json.Unmarshal(payload, params)
 	if err != nil {
 		msg := fmt.Sprintf("invalid 'activate' operation parameters: %v", string(payload))
-		return &ErrorResponse{http.StatusBadRequest, msg}
+		return &ErrorResponse{http.StatusBadRequest, ErrorCodeParameterInvalid, msg}
 	}
 
 	if params.To.Before(*params.From) {
 		msg := fmt.Sprintf("period end - %v -  is before period start - %v", params.To, params.From)
-		return &ErrorResponse{http.StatusBadRequest, msg}
+		return &ErrorResponse{http.StatusBadRequest, ErrorCodeParameterInvalid, msg}
 	}
 
 	logger.Infof("activate called: %+v", params)
@@ -397,7 +410,7 @@ func (u *AutoUploadable) trigger(payload []byte) *ErrorResponse {
 	err := json.Unmarshal(payload, params)
 	if err != nil {
 		msg := fmt.Sprintf("invalid 'trigger' operation parameters: %v", string(payload))
-		return &ErrorResponse{http.StatusBadRequest, msg}
+		return &ErrorResponse{http.StatusBadRequest, ErrorCodeParameterInvalid, msg}
 	}
 
 	logger.Infof("trigger called: %+v", params)
@@ -409,7 +422,7 @@ func (u *AutoUploadable) trigger(payload []byte) *ErrorResponse {
 
 	err = u.customizer.DoTrigger(correlationID, params.Options)
 	if err != nil {
-		return &ErrorResponse{http.StatusInternalServerError, err.Error()}
+		return &ErrorResponse{http.StatusInternalServerError, ErrorCodeExecutionFailed, err.Error()}
 	}
 
 	return nil
@@ -425,7 +438,7 @@ func (u *AutoUploadable) start(payload []byte) *ErrorResponse {
 	err := json.Unmarshal(payload, params)
 	if err != nil {
 		msg := fmt.Sprintf("invalid 'start' operation parameters: %v", string(payload))
-		return &ErrorResponse{http.StatusBadRequest, msg}
+		return &ErrorResponse{http.StatusBadRequest, ErrorCodeParameterInvalid, msg}
 	}
 
 	logger.Infof("start called: %+v", params)
@@ -433,13 +446,15 @@ func (u *AutoUploadable) start(payload []byte) *ErrorResponse {
 	up := u.uploads.Get(params.CorrelationID)
 
 	if up == nil {
-		return &ErrorResponse{http.StatusNotFound, fmt.Sprintf("upload with correlation ID '%s' not found", params.CorrelationID)}
+		return &ErrorResponse{http.StatusNotFound,
+			ErrorCodeParameterInvalid,
+			fmt.Sprintf("upload with correlation ID '%s' not found", params.CorrelationID)}
 	}
 
 	err = up.start(params.Options)
 	if err != nil {
 		logger.Errorf("failed to start upload %s: %v", params.CorrelationID, err)
-		return &ErrorResponse{http.StatusInternalServerError, err.Error()}
+		return &ErrorResponse{http.StatusInternalServerError, ErrorCodeExecutionFailed, err.Error()}
 	}
 
 	return nil
@@ -456,7 +471,7 @@ func (u *AutoUploadable) cancel(payload []byte) *ErrorResponse {
 	err := json.Unmarshal(payload, params)
 	if err != nil {
 		msg := fmt.Sprintf("invalid 'cancel' operation parameters: %v", string(payload))
-		return &ErrorResponse{http.StatusBadRequest, msg}
+		return &ErrorResponse{http.StatusBadRequest, ErrorCodeParameterInvalid, msg}
 	}
 
 	logger.Infof("cancel called: %+v", params)
@@ -464,7 +479,7 @@ func (u *AutoUploadable) cancel(payload []byte) *ErrorResponse {
 	up := u.uploads.Get(params.CorrelationID)
 	if up == nil {
 		logger.Errorf("failed to cancel upload %s: %v", params.CorrelationID, err)
-		return &ErrorResponse{http.StatusNotFound, fmt.Sprintf("upload with correlation ID '%s' not found", params.CorrelationID)}
+		return &ErrorResponse{http.StatusNotFound, ErrorCodeParameterInvalid, fmt.Sprintf("upload with correlation ID '%s' not found", params.CorrelationID)}
 	}
 
 	go up.cancel(params.StatusCode, params.Message)
