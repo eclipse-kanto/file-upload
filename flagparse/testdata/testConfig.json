@@ -4,7 +4,7 @@
   "broker": "testBroker",
   "username": "testUsername",
   "password": "testPassword",
-  "name": "testName",
+  "featureId": "testId",
   "type": "testType",
   "context": "testContext",
   "period": "25ns",

@@ -43,10 +43,10 @@ const (
 
 // UploadableConfig contains configuration for the AutoUploadable feature
 type UploadableConfig struct {
-	Name    string   `json:"name,omitempty" def:"{name}" descr:"Name for the {feature} feature.\nShould conform to https://docs.bosch-iot-suite.com/things/basic-concepts/namespace-thing-feature/#characters-allowed-in-a-feature-id"`
-	Context string   `json:"context,omitempty" def:"edge" descr:"Context of the files uploaded by {feature} feature, unique in the scope of the type."`
-	Type    string   `json:"type,omitempty" def:"file" descr:"Type of the files, uploaded by {feature} feature."`
-	Period  Duration `json:"period,omitempty" def:"10h" descr:"{period}. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
+	FeatureID string   `json:"featureId,omitempty" def:"{featureID}" descr:"The {feature} feature unique identifier in the scope of the edge digital twin.\nShould conform to https://docs.bosch-iot-suite.com/things/basic-concepts/namespace-thing-feature/#characters-allowed-in-a-feature-id"`
+	Context   string   `json:"context,omitempty" def:"edge" descr:"Context of the files uploaded by {feature} feature, unique in the scope of the type."`
+	Type      string   `json:"type,omitempty" def:"file" descr:"Type of the files, uploaded by {feature} feature."`
+	Period    Duration `json:"period,omitempty" def:"10h" descr:"{period}. Should be a sequence of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '1.5h', '10m30s', etc. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'"`
 
 	Active     bool  `json:"active,omitempty" def:"false" descr:"Activate periodic {actions}"`
 	ActiveFrom Xtime `json:"activeFrom,omitempty" descr:"Time from which periodic {actions} should be active, in RFC 3339 format (2006-01-02T15:04:05Z07:00). If omitted (and 'active' flag is set) current time will be used as start of the periodic {actions}."`
@@ -223,12 +223,12 @@ func (u *AutoUploadable) connectHandler(client *ditto.Client) {
 	feature.WithDefinitionFrom(u.definitions...).
 		WithProperty("type", u.cfg.Type).WithProperty("context", u.cfg.Context).WithProperty("info", u.info).WithProperty(autoUploadProperty, u.state)
 
-	cmd := things.NewCommand(model.NewNamespacedIDFrom(u.deviceID)).Twin().Feature(u.cfg.Name).Modify(feature)
+	cmd := things.NewCommand(model.NewNamespacedIDFrom(u.deviceID)).Twin().Feature(u.cfg.FeatureID).Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
 	err := client.Send(msg)
 	if err != nil {
-		panic(fmt.Errorf("failed to create '%s' feature", u.cfg.Name))
+		panic(fmt.Errorf("failed to create '%s' feature", u.cfg.FeatureID))
 	}
 
 	if u.cfg.Active {
@@ -244,7 +244,7 @@ func (u *AutoUploadable) sendUploadRequest(correlationID string, options map[str
 
 	request := uploadRequest{correlationID, options}
 
-	msg := things.NewMessage(model.NewNamespacedIDFrom(u.deviceID)).Feature(u.cfg.Name).Outbox("request").WithPayload(request)
+	msg := things.NewMessage(model.NewNamespacedIDFrom(u.deviceID)).Feature(u.cfg.FeatureID).Outbox("request").WithPayload(request)
 
 	replyTo := fmt.Sprintf("command/%s", u.tenantID)
 	err := u.client.Send(msg.Envelope(protocol.WithResponseRequired(false), protocol.WithContentType("application/json"), protocol.WithReplyTo(replyTo)))
@@ -258,7 +258,7 @@ func (u *AutoUploadable) sendUploadRequest(correlationID string, options map[str
 
 // messageHandler should be called in separate go routine for each request
 func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope) {
-	if !strings.HasPrefix(msg.Path, "/features/"+u.cfg.Name) {
+	if !strings.HasPrefix(msg.Path, "/features/"+u.cfg.FeatureID) {
 		return //not for me
 	}
 
@@ -279,7 +279,7 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 		logger.Errorf("could not parse message value: %v", msg.Value)
 	}
 
-	operationPrefix := "/features/" + u.cfg.Name + "/inbox/messages/"
+	operationPrefix := "/features/" + u.cfg.FeatureID + "/inbox/messages/"
 	operation := strings.TrimPrefix(msg.Path, operationPrefix)
 
 	if operation == msg.Path { //wrong prefix
@@ -329,15 +329,15 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 }
 
 // UpdateProperty sends Ditto message for value update of the given property
-func (u *AutoUploadable) UpdateProperty(name string, value interface{}) {
-	command := things.NewCommand(model.NewNamespacedIDFrom(u.deviceID)).Twin().FeatureProperty(u.cfg.Name, name).Modify(value)
+func (u *AutoUploadable) UpdateProperty(featureID string, value interface{}) {
+	command := things.NewCommand(model.NewNamespacedIDFrom(u.deviceID)).Twin().FeatureProperty(u.cfg.FeatureID, featureID).Modify(value)
 
 	envelope := command.Envelope(protocol.WithResponseRequired(false))
 
 	if err := u.client.Send(envelope); err != nil {
 		logger.Errorf("could not send Ditto message: %v", err)
 	} else {
-		logger.Infof("feature property '%s' value updated: %v", name, value)
+		logger.Infof("feature property '%s' value updated: %v", featureID, value)
 	}
 }
 
