@@ -65,7 +65,9 @@ func (cfg *UploadConfig) Validate() {
 	if cfg.Files == "" && cfg.Mode != client.ModeLax {
 		log.Fatalln("Files glob not specified. To permit unrestricted file upload set 'mode' property to 'lax'.")
 	}
-
+	if (len(cfg.ClientCertMQTT) == 0) != (len(cfg.ClientKeyMQTT) == 0) {
+		log.Fatalln("Either both client MQTT certificate and key must be set or none of them.")
+	}
 	cfg.UploadableConfig.Validate()
 }
 
