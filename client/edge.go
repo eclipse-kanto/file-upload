@@ -31,12 +31,12 @@ const (
 
 // BrokerConfig contains address and credentials for the MQTT broker
 type BrokerConfig struct {
-	Broker         string `json:"broker,omitempty" def:"tcp://localhost:1883" descr:"Local MQTT broker address"`
-	Username       string `json:"username,omitempty" descr:"Username for authorized local client"`
-	Password       string `json:"password,omitempty" descr:"Password for authorized local client"`
-	CaCertMQTT     string `json:"caCertMQTT,omitempty" descr:"A PEM encoded certificate authority, used to sign the certificate of the local MQTT broker"`
-	ClientCertMQTT string `json:"clientCertMQTT,omitempty" descr:"A PEM encoded client certificate for connection to local MQTT broker"`
-	ClientKeyMQTT  string `json:"clientKeyMQTT,omitempty" descr:"А private key for the client certificate, specified with 'deviceCert'"`
+	Broker   string `json:"broker,omitempty" def:"tcp://localhost:1883" descr:"Local MQTT broker address"`
+	Username string `json:"username,omitempty" descr:"Username for authorized local client"`
+	Password string `json:"password,omitempty" descr:"Password for authorized local client"`
+	CaCert   string `json:"caCert,omitempty" descr:"A PEM encoded certificate authority, used to sign the certificate of the local MQTT broker"`
+	Cert     string `json:"cert,omitempty" descr:"A PEM encoded client certificate for connection to local MQTT broker"`
+	Key      string `json:"key,omitempty" descr:"A private key for the client certificate, specified with 'cert'"`
 }
 
 // EdgeConfiguration represents local Edge Thing configuration - its device, tenant and policy identifiers.
@@ -63,21 +63,21 @@ type EdgeClient interface {
 func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error) {
 	var certificates []tls.Certificate
 	var caCertPool *x509.CertPool
-	if len(cfg.ClientCertMQTT) > 0 { // implies the client key will also be non-empty after validation
-		keyPair, err := tls.LoadX509KeyPair(cfg.ClientCertMQTT, cfg.ClientKeyMQTT)
+	if len(cfg.Cert) > 0 { // implies the key will also be non-empty after validation
+		keyPair, err := tls.LoadX509KeyPair(cfg.Cert, cfg.Key)
 		if err != nil {
-			return nil, fmt.Errorf("error reading x509 key pair files(\"%s, %s\") - %v", cfg.ClientCertMQTT, cfg.ClientKeyMQTT, err)
+			return nil, fmt.Errorf("error reading x509 key pair files(\"%s, %s\") - %v", cfg.Cert, cfg.Key, err)
 		}
 		certificates = []tls.Certificate{keyPair}
 	}
-	if len(cfg.CaCertMQTT) > 0 {
-		caCert, err := ioutil.ReadFile(cfg.CaCertMQTT)
+	if len(cfg.CaCert) > 0 {
+		caCert, err := ioutil.ReadFile(cfg.CaCert)
 		if err != nil {
-			return nil, fmt.Errorf("error reading CA certificate file \"%s\" - %v", cfg.CaCertMQTT, err)
+			return nil, fmt.Errorf("error reading CA certificate file \"%s\" - %v", cfg.CaCert, err)
 		}
 		caCertPool = x509.NewCertPool()
 		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-			logger.Warningf("cannot append CA certificate loaded from \"%s\" to pool", cfg.CaCertMQTT)
+			logger.Warningf("cannot append CA certificate loaded from \"%s\" to pool", cfg.CaCert)
 		}
 	}
 	config := &tls.Config{

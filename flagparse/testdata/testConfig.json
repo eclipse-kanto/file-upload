@@ -20,5 +20,8 @@
   "logFileSize": 1,
   "logFileCount": 2,
   "logFileMaxAge": 3,
-  "serverCert": "testCert"
+  "serverCert": "testCert",
+  "caCert": "caCert",
+  "cert": "clientCert",
+  "key": "clientKey"
 }
