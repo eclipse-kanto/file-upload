@@ -61,6 +61,7 @@ type EdgeClient interface {
 
 // NewEdgeConnector create EdgeConnector with the given BrokerConfig for the given EdgeClient
 func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error) {
+	var tlsConfig *tls.Config
 	var certificates []tls.Certificate
 	var caCertPool *x509.CertPool
 	if len(cfg.Cert) > 0 { // implies the key will also be non-empty after validation
@@ -69,31 +70,34 @@ func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error)
 			return nil, fmt.Errorf("error reading x509 key pair files(\"%s, %s\") - %v", cfg.Cert, cfg.Key, err)
 		}
 		certificates = []tls.Certificate{keyPair}
-	}
-	if len(cfg.CaCert) > 0 {
-		caCert, err := ioutil.ReadFile(cfg.CaCert)
-		if err != nil {
-			return nil, fmt.Errorf("error reading CA certificate file \"%s\" - %v", cfg.CaCert, err)
+		if len(cfg.CaCert) > 0 { // otherwise the system certificate pool will be used
+			caCert, err := ioutil.ReadFile(cfg.CaCert)
+			if err != nil {
+				return nil, fmt.Errorf("error reading CA certificate file \"%s\" - %v", cfg.CaCert, err)
+			}
+			caCertPool = x509.NewCertPool()
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				return nil, fmt.Errorf("cannot append CA certificate loaded from \"%s\" to pool", cfg.CaCert)
+			}
 		}
-		caCertPool = x509.NewCertPool()
-		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-			logger.Warningf("cannot append CA certificate loaded from \"%s\" to pool", cfg.CaCert)
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            caCertPool,
+			Certificates:       certificates,
+			MinVersion:         tls.VersionTLS12,
+			MaxVersion:         tls.VersionTLS13,
+			CipherSuites:       uploaders.SupportedCipherSuites(),
 		}
-	}
-	config := &tls.Config{
-		InsecureSkipVerify: false,
-		RootCAs:            caCertPool,
-		Certificates:       certificates,
-		MinVersion:         tls.VersionTLS12,
-		MaxVersion:         tls.VersionTLS13,
-		CipherSuites:       uploaders.SupportedCipherSuites(),
 	}
 	opts := MQTT.NewClientOptions().
 		AddBroker(cfg.Broker).
 		SetClientID(uuid.New().String()).
 		SetKeepAlive(30 * time.Second).
 		SetCleanSession(true).
-		SetAutoReconnect(true).SetTLSConfig(config)
+		SetAutoReconnect(true)
+	if tlsConfig != nil {
+		opts = opts.SetTLSConfig(tlsConfig)
+	}
 	if len(cfg.Username) > 0 {
 		opts = opts.SetUsername(cfg.Username).SetPassword(cfg.Password)
 	}
