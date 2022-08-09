@@ -34,9 +34,9 @@ type BrokerConfig struct {
 	Broker   string `json:"broker,omitempty" def:"tcp://localhost:1883" descr:"Local MQTT broker address"`
 	Username string `json:"username,omitempty" descr:"Username for authorized local client"`
 	Password string `json:"password,omitempty" descr:"Password for authorized local client"`
-	CaCert   string `json:"caCert,omitempty" descr:"A PEM encoded certificate authority, used to sign the certificate of the local MQTT broker"`
-	Cert     string `json:"cert,omitempty" descr:"A PEM encoded client certificate for connection to local MQTT broker"`
-	Key      string `json:"key,omitempty" descr:"A private key for the client certificate, specified with 'cert'"`
+	CaCert   string `json:"caCert,omitempty" descr:"A PEM encoded CA certificates 'file' for MQTT broker connection"`
+	Cert     string `json:"cert,omitempty" descr:"A PEM encoded certificate 'file' for MQTT broker connection"`
+	Key      string `json:"key,omitempty" descr:"A PEM encoded unencrypted private key 'file' for MQTT broker connection"`
 }
 
 // EdgeConfiguration represents local Edge Thing configuration - its device, tenant and policy identifiers.
@@ -64,7 +64,7 @@ func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error)
 	var tlsConfig *tls.Config
 	var certificates []tls.Certificate
 	var caCertPool *x509.CertPool
-	if len(cfg.Cert) > 0 { // implies the key will also be non-empty after validation
+	if len(cfg.Cert) > 0 || len(cfg.Key) > 0 {
 		keyPair, err := tls.LoadX509KeyPair(cfg.Cert, cfg.Key)
 		if err != nil {
 			return nil, fmt.Errorf("error reading x509 key pair files(\"%s, %s\") - %v", cfg.Cert, cfg.Key, err)
