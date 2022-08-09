@@ -12,10 +12,15 @@
 package client
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/eclipse-kanto/file-upload/logger"
+	"github.com/eclipse-kanto/file-upload/uploaders"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 )
@@ -29,6 +34,9 @@ type BrokerConfig struct {
 	Broker   string `json:"broker,omitempty" def:"tcp://localhost:1883" descr:"Local MQTT broker address"`
 	Username string `json:"username,omitempty" descr:"Username for authorized local client"`
 	Password string `json:"password,omitempty" descr:"Password for authorized local client"`
+	CaCert   string `json:"caCert,omitempty" descr:"A PEM encoded CA certificates 'file' for MQTT broker connection"`
+	Cert     string `json:"cert,omitempty" descr:"A PEM encoded certificate 'file' for MQTT broker connection"`
+	Key      string `json:"key,omitempty" descr:"A PEM encoded unencrypted private key 'file' for MQTT broker connection"`
 }
 
 // EdgeConfiguration represents local Edge Thing configuration - its device, tenant and policy identifiers.
@@ -53,12 +61,43 @@ type EdgeClient interface {
 
 // NewEdgeConnector create EdgeConnector with the given BrokerConfig for the given EdgeClient
 func NewEdgeConnector(cfg *BrokerConfig, ecl EdgeClient) (*EdgeConnector, error) {
+	var tlsConfig *tls.Config
+	var certificates []tls.Certificate
+	var caCertPool *x509.CertPool
+	if len(cfg.Cert) > 0 || len(cfg.Key) > 0 {
+		keyPair, err := tls.LoadX509KeyPair(cfg.Cert, cfg.Key)
+		if err != nil {
+			return nil, fmt.Errorf("error reading x509 key pair files(\"%s, %s\") - %v", cfg.Cert, cfg.Key, err)
+		}
+		certificates = []tls.Certificate{keyPair}
+		if len(cfg.CaCert) > 0 { // otherwise the system certificate pool will be used
+			caCert, err := ioutil.ReadFile(cfg.CaCert)
+			if err != nil {
+				return nil, fmt.Errorf("error reading CA certificate file \"%s\" - %v", cfg.CaCert, err)
+			}
+			caCertPool = x509.NewCertPool()
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				return nil, fmt.Errorf("cannot append CA certificate loaded from \"%s\" to pool", cfg.CaCert)
+			}
+		}
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            caCertPool,
+			Certificates:       certificates,
+			MinVersion:         tls.VersionTLS12,
+			MaxVersion:         tls.VersionTLS13,
+			CipherSuites:       uploaders.SupportedCipherSuites(),
+		}
+	}
 	opts := MQTT.NewClientOptions().
 		AddBroker(cfg.Broker).
 		SetClientID(uuid.New().String()).
 		SetKeepAlive(30 * time.Second).
 		SetCleanSession(true).
 		SetAutoReconnect(true)
+	if tlsConfig != nil {
+		opts = opts.SetTLSConfig(tlsConfig)
+	}
 	if len(cfg.Username) > 0 {
 		opts = opts.SetUsername(cfg.Username).SetPassword(cfg.Password)
 	}

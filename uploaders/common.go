@@ -76,7 +76,7 @@ func NewHTTPUploader(options map[string]string, serverCert string) (Uploader, er
 
 	headers := ExtractDictionary(options, HeadersPrefix)
 
-	return &HTTPUploader{url, headers, method, serverCert, supportedCipherSuites()}, nil
+	return &HTTPUploader{url, headers, method, serverCert, SupportedCipherSuites()}, nil
 }
 
 func (u *HTTPUploader) getHTTPTransport() (*http.Transport, error) {
@@ -190,7 +190,8 @@ func ComputeMD5(f *os.File, encodeBase64 bool) (string, error) {
 	return encoded, nil
 }
 
-func supportedCipherSuites() []uint16 {
+// SupportedCipherSuites returns the ids of secure TLS cipher suites
+func SupportedCipherSuites() []uint16 {
 	cs := tls.CipherSuites()
 	cid := make([]uint16, len(cs))
 	for i := range cs {
