@@ -153,6 +153,12 @@ golang.org/x/net (v0.0.0-20211123203042-d83791d6bcd9)
 * Project: https://pkg.go.dev/golang.org/x/net
 * Source:  https://github.com/golang/net/tree/d83791d6bcd9ec2bdaacd08f4da4718370382c74
 
+golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://pkg.go.dev/golang.org/x/sync
+* Source:  https://github.com/golang/sync/tree/036812b2e83c0ddf193dd5a34e034151da389d09
+
 azure-sdk-for-go/sdk/azcore (0.20.0)
 
 * License: MIT License
