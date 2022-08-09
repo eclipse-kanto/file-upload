@@ -33,11 +33,11 @@ The project maintains all source code repositories in the following GitHub organ
 
 This project makes use of the follow third party projects.
 
-eclipse/paho.mqtt.golang (1.3.5)
+eclipse/paho.mqtt.golang (1.4.1)
 
 * License: Eclipse Distribution License v1.0
 * Project: https://github.com/eclipse/paho.mqtt.golang
-* Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.3.5
+* Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.4.1
 
 eclipse/ditto-clients-golang (v0.0.0-20211126080253-3e1c6149fede)
 
