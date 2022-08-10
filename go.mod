@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.7.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/eclipse/ditto-clients-golang v0.0.0-20211126080253-3e1c6149fede
-	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/google/uuid v1.3.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
@@ -19,6 +19,7 @@ require (
 require (
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 // indirect
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
 

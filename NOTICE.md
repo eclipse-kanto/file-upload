@@ -33,11 +33,11 @@ The project maintains all source code repositories in the following GitHub organ
 
 This project makes use of the follow third party projects.
 
-eclipse/paho.mqtt.golang (1.3.5)
+eclipse/paho.mqtt.golang (1.4.1)
 
 * License: Eclipse Distribution License v1.0
 * Project: https://github.com/eclipse/paho.mqtt.golang
-* Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.3.5
+* Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.4.1
 
 eclipse/ditto-clients-golang (v0.0.0-20211126080253-3e1c6149fede)
 
@@ -152,6 +152,12 @@ golang.org/x/net (v0.0.0-20211123203042-d83791d6bcd9)
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://pkg.go.dev/golang.org/x/net
 * Source:  https://github.com/golang/net/tree/d83791d6bcd9ec2bdaacd08f4da4718370382c74
+
+golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://pkg.go.dev/golang.org/x/sync
+* Source:  https://github.com/golang/sync/tree/036812b2e83c0ddf193dd5a34e034151da389d09
 
 azure-sdk-for-go/sdk/azcore (0.20.0)
 
