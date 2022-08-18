@@ -259,16 +259,26 @@ func LoadJSON(file string, v interface{}) error {
 	return err
 }
 
+//ToFieldName converts command-line flag name to config structure field name
+func ToFieldName(s string) string {
+	s = replaceSuffix(s, "Id", "ID")
+	rn := []rune(s)
+	rn[0] = unicode.ToUpper(rn[0])
+	return string(rn)
+}
+
 //ToFlagName converts config structure field name to command-line flag name
 func ToFlagName(s string) string {
+	s = replaceSuffix(s, "ID", "Id")
 	rn := []rune(s)
 	rn[0] = unicode.ToLower(rn[0])
 	return string(rn)
 }
 
-//ToFieldName converts command-line flag name to config structure field name
-func ToFieldName(s string) string {
-	rn := []rune(s)
-	rn[0] = unicode.ToUpper(rn[0])
-	return string(rn)
+//replaceSuffix replaces a suffix of a string with another suffix
+func replaceSuffix(s, suff, replacement string) string {
+	if strings.HasSuffix(s, suff) {
+		return s[:len(s)-len(suff)] + replacement
+	}
+	return s
 }
