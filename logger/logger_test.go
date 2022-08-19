@@ -25,9 +25,9 @@ func TestLogLevelError(t *testing.T) {
 	validate("ERROR", true, false, false, false, false, t)
 }
 
-// TestLogLevelWarning tests logger functions with log level set to WARNING.
-func TestLogLevelWarning(t *testing.T) {
-	validate("WARNING", true, true, false, false, false, t)
+// TestLogLevelWarn tests logger functions with log level set to WARN.
+func TestLogLevelWarn(t *testing.T) {
+	validate("WARN", true, true, false, false, false, t)
 }
 
 // TestLogLevelInfo tests logger functions with log level set to INFO.
@@ -54,7 +54,7 @@ func TestNopWriter(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Prepare the logger without writter
+	// Prepare the logger without writer
 	loggerOut, _ := SetupLogger(&LogConfig{LogFile: "", LogLevel: "TRACE", LogFileSize: 2, LogFileCount: 5})
 	defer loggerOut.Close()
 
@@ -71,7 +71,7 @@ func TestNopWriter(t *testing.T) {
 	}
 }
 
-func validate(lvl string, hasError bool, hasWarning bool, hasInfo bool, hasDebug bool, hasTrace bool, t *testing.T) {
+func validate(lvl string, hasError bool, hasWarn bool, hasInfo bool, hasDebug bool, hasTrace bool, t *testing.T) {
 	// Prepare
 	dir := "_tmp-logger"
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -90,8 +90,8 @@ func validate(lvl string, hasError bool, hasWarning bool, hasInfo bool, hasDebug
 	// 1. Validate for error logs.
 	validateError(log, hasError, t)
 
-	// 2. Validate for warning logs.
-	validateWarning(log, hasWarning, t)
+	// 2. Validate for warn logs.
+	validateWarn(log, hasWarn, t)
 
 	// 3. Validate for info logs.
 	validateInfo(log, hasInfo, t)
@@ -117,17 +117,17 @@ func validateError(log string, has bool, t *testing.T) {
 	}
 }
 
-// validateError validates for warning logs.
-func validateWarning(log string, has bool, t *testing.T) {
-	// 1. Validate for Warning function.
-	Warning("warning log")
-	if has != search(log, t, wPrefix, "warning log") {
-		t.Errorf("warning entry mishmash [result: %v]", !has)
+// validateError validates for warn logs.
+func validateWarn(log string, has bool, t *testing.T) {
+	// 1. Validate for Warn function.
+	Warn("warn log")
+	if has != search(log, t, wPrefix, "warn log") {
+		t.Errorf("warn entry mishmash [result: %v]", !has)
 	}
-	// 2. Validate for Warningf function.
-	Warningf("warning log [%v,%s]", "param1", "param2")
-	if has != search(log, t, wPrefix, "warning log [param1,param2]") {
-		t.Errorf("warningf entry mishmash: [result: %v]", !has)
+	// 2. Validate for Warnf function.
+	Warnf("warn log [%v,%s]", "param1", "param2")
+	if has != search(log, t, wPrefix, "warn log [param1,param2]") {
+		t.Errorf("warnf entry mishmash: [result: %v]", !has)
 	}
 }
 

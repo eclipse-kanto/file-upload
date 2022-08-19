@@ -25,7 +25,7 @@ import (
 // LogConfig contains logging configuration
 type LogConfig struct {
 	LogFile       string `json:"logFile,omitempty" def:"./log/file-upload.log" descr:"Log file location in storage directory"`
-	LogLevel      string `json:"logLevel,omitempty" def:"INFO" descr:"Log levels are ERROR, WARNING, INFO, DEBUG, TRACE"`
+	LogLevel      string `json:"logLevel,omitempty" def:"INFO" descr:"Log levels are ERROR, WARN, INFO, DEBUG, TRACE"`
 	LogFileSize   int    `json:"logFileSize,omitempty" def:"2" descr:"Log file size in MB before it gets rotated"`
 	LogFileCount  int    `json:"logFileCount,omitempty" def:"5" descr:"Log file max rotations count"`
 	LogFileMaxAge int    `json:"logFileMaxAge,omitempty" def:"28" descr:"Log file rotations max age in days"`
@@ -47,7 +47,7 @@ const (
 	logFlags int = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lmsgprefix
 
 	ePrefix = "ERROR  "
-	wPrefix = "WARNING"
+	wPrefix = "WARN   "
 	iPrefix = "INFO   "
 	dPrefix = "DEBUG  "
 	tPrefix = "TRACE  "
@@ -89,7 +89,7 @@ func SetupLogger(logConfig *LogConfig) (io.WriteCloser, error) {
 	switch strings.ToUpper(logConfig.LogLevel) {
 	case "INFO":
 		level = INFO
-	case "WARNING":
+	case "WARN":
 		level = WARN
 	case "DEBUG":
 		level = DEBUG
@@ -116,15 +116,15 @@ func Errorf(format string, v ...interface{}) {
 	}
 }
 
-// Warning logs the given value, if level is >= WARN
-func Warning(v interface{}) {
+// Warn logs the given value, if level is >= WARN
+func Warn(v interface{}) {
 	if level >= WARN {
 		logger.Println(wPrefix, v)
 	}
 }
 
-// Warningf logs the given formatted message, if level is >= WARN
-func Warningf(format string, v ...interface{}) {
+// Warnf logs the given formatted message, if level is >= WARN
+func Warnf(format string, v ...interface{}) {
 	if level >= WARN {
 		logger.Printf(fmt.Sprint(wPrefix, " ", format), v...)
 	}

@@ -155,7 +155,7 @@ func (us *Uploads) AddMulti(correlationID string, paths []string, deleteUploaded
 		if m.totalSizeBytes != fineGrainedUploadProgressNotSupported {
 			fileInfo, err := os.Stat(path)
 			if err != nil {
-				logger.Warningf("cannot get size of file %s", path)
+				logger.Warnf("cannot get size of file %s", path)
 				m.totalSizeBytes = fineGrainedUploadProgressNotSupported // will use progress report, based on number of uploaded files
 			} else {
 				size := fileInfo.Size()
@@ -305,7 +305,7 @@ func (u *MultiUpload) changeProgress(newBytesTransferred int64) {
 	defer u.mutex.Unlock()
 	if u.totalSizeBytes == 0 { //an empty file set, nothing to change
 		if newBytesTransferred != 0 {
-			logger.Warningf("reporting non-zero transferred bytes(%d) on an empty file set", newBytesTransferred)
+			logger.Warnf("reporting non-zero transferred bytes(%d) on an empty file set", newBytesTransferred)
 		}
 	} else if u.totalSizeBytes != fineGrainedUploadProgressNotSupported {
 		u.totalBytesTransferred += newBytesTransferred
@@ -496,7 +496,7 @@ func (u *SingleUpload) start(options map[string]string) error {
 			return // unsupported
 		}
 		if u.totalSizeBytes == 0 && bytesTransferred != 0 {
-			logger.Warningf("reporting non-zero transferred bytes(%d) on an empty file(%v)", bytesTransferred, u.file)
+			logger.Warnf("reporting non-zero transferred bytes(%d) on an empty file(%v)", bytesTransferred, u.file)
 			return
 		}
 		if u.bytesTransferred != bytesTransferred {

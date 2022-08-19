@@ -59,7 +59,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	if classification == logging.Debug {
 		logger.Debugf(format, v...)
 	} else if classification == logging.Warn {
-		logger.Warningf(format, v...)
+		logger.Warnf(format, v...)
 	} else {
 		logger.Infof(format, v...)
 	}
