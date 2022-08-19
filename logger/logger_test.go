@@ -108,68 +108,68 @@ func validateError(log string, has bool, t *testing.T) {
 	// 1. Validate for Error function.
 	Error("error log")
 	if has != search(log, t, ePrefix, "error log") {
-		t.Errorf("error entry mishmash [result: %v]", !has)
+		t.Errorf("error entry mismatch [result: %v]", !has)
 	}
 	// 2. Validate for Errorf function.
 	Errorf("error log [%v,%s]", "param1", "param2")
 	if has != search(log, t, ePrefix, "error log [param1,param2]") {
-		t.Errorf("errorf entry mishmash: [result: %v]", !has)
+		t.Errorf("errorf entry mismatch: [result: %v]", !has)
 	}
 }
 
-// validateError validates for warn logs.
+// validateWarn validates for warn logs.
 func validateWarn(log string, has bool, t *testing.T) {
 	// 1. Validate for Warn function.
 	Warn("warn log")
 	if has != search(log, t, wPrefix, "warn log") {
-		t.Errorf("warn entry mishmash [result: %v]", !has)
+		t.Errorf("warn entry mismatch [result: %v]", !has)
 	}
 	// 2. Validate for Warnf function.
 	Warnf("warn log [%v,%s]", "param1", "param2")
 	if has != search(log, t, wPrefix, "warn log [param1,param2]") {
-		t.Errorf("warnf entry mishmash: [result: %v]", !has)
+		t.Errorf("warnf entry mismatch: [result: %v]", !has)
 	}
 }
 
-// validateError validates for info logs.
+// validateInfo validates for info logs.
 func validateInfo(log string, has bool, t *testing.T) {
 	// 1. Validate for Info function.
 	Info("info log")
 	if has != search(log, t, iPrefix, "info log") {
-		t.Errorf("info entry mishmash [result: %v]", !has)
+		t.Errorf("info entry mismatch [result: %v]", !has)
 	}
 	// 2. Validate for Infof function.
 	Infof("info log [%v,%s]", "param1", "param2")
 	if has != search(log, t, iPrefix, "info log [param1,param2]") {
-		t.Errorf("infof entry mishmash: [result: %v]", !has)
+		t.Errorf("infof entry mismatch: [result: %v]", !has)
 	}
 }
 
-// validateError validates for debug logs.
+// validateDebug validates for debug logs.
 func validateDebug(log string, has bool, t *testing.T) {
 	// 1. Validate for Debug function.
 	Debug("debug log")
 	if has != search(log, t, dPrefix, "debug log") {
-		t.Errorf("debug entry mishmash [result: %v]", !has)
+		t.Errorf("debug entry mismatch [result: %v]", !has)
 	}
 	// 2. Validate for Debugf function.
 	Debugf("debug log [%v,%s]", "param1", "param2")
 	if has != search(log, t, dPrefix, "debug log [param1,param2]") {
-		t.Errorf("debugf entry mishmash: [result: %v]", !has)
+		t.Errorf("debugf entry mismatch: [result: %v]", !has)
 	}
 }
 
-// validateError validates for trace logs.
+// validateTrace validates for trace logs.
 func validateTrace(log string, has bool, t *testing.T) {
 	// 1. Validate for Trace function.
 	Trace("trace log")
 	if has != search(log, t, tPrefix, "trace log") {
-		t.Errorf("trace entry mishmash [result: %v]", !has)
+		t.Errorf("trace entry mismatch [result: %v]", !has)
 	}
 	// 2. Validate for Tracef function.
 	Tracef("trace log [%v,%s]", "param1", "param2")
 	if has != search(log, t, tPrefix, "trace log [param1,param2]") {
-		t.Errorf("tracef entry mishmash: [result: %v]", !has)
+		t.Errorf("tracef entry mismatch: [result: %v]", !has)
 	}
 }
 
