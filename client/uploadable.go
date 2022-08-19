@@ -283,7 +283,7 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 	operation := strings.TrimPrefix(msg.Path, operationPrefix)
 
 	if operation == msg.Path { //wrong prefix
-		logger.Warningf("ignoring unsupported message '%v'", msg.Topic)
+		logger.Warnf("ignoring unsupported message '%v'", msg.Topic)
 		return
 	}
 
@@ -348,7 +348,7 @@ func (u *AutoUploadable) UpdateProperty(featureID string, value interface{}) {
 func (u *AutoUploadable) uploadStatusUpdated(status *UploadStatus) {
 	defer func() {
 		if e := recover(); e != nil {
-			logger.Warning(e) //already closed
+			logger.Warn(e) //already closed
 		}
 	}()
 
