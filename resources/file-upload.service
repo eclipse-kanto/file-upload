@@ -6,7 +6,7 @@ Requires=network.target
 Requires=mosquitto.service
 
 [Service]
-ExecStart=/usr/local/bin/file-upload -configFile /etc/file-upload/config.json
+ExecStart=/usr/bin/file-upload -configFile /etc/file-upload/config.json
 Restart=always
 
 [Install]
