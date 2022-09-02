@@ -55,7 +55,7 @@ func TestNopWriter(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	// Prepare the logger without writer
-	loggerOut, _ := SetupLogger(&LogConfig{LogFile: "", LogLevel: "TRACE", LogFileSize: 2, LogFileCount: 5})
+	loggerOut, _ := SetupLogger(&LogConfig{LogFile: "", LogLevel: "TRACE", LogFileSize: 2, LogFileCount: 5}, "[FILE UPLOAD]")
 	defer loggerOut.Close()
 
 	// Validate that temporary is empty
@@ -81,7 +81,7 @@ func validate(lvl string, hasError bool, hasWarn bool, hasInfo bool, hasDebug bo
 
 	// Prepare the logger
 	log := filepath.Join(dir, lvl+".log")
-	loggerOut, err := SetupLogger(&LogConfig{LogFile: log, LogLevel: lvl, LogFileSize: 2, LogFileCount: 5})
+	loggerOut, err := SetupLogger(&LogConfig{LogFile: log, LogLevel: lvl, LogFileSize: 2, LogFileCount: 5}, "[FILE UPLOAD]")
 	if err != nil {
 		t.Fatal(err)
 	}
