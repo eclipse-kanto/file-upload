@@ -49,7 +49,7 @@ type UploadConfig struct {
 var ConfigNames = map[string]string{
 	"featureID": "AutoUploadable", "feature": "Uploadable", "period": "Upload period",
 	"action": "upload", "actions": "uploads", "running_actions": "uploads",
-	"transfers": "uploads", "logFile": "./log/file-upload.log",
+	"transfers": "uploads", "logFile": "log/file-upload.log",
 	"mode": "File access mode. Restricts which files can be requested dynamically for upload through 'upload.files' " +
 		"trigger operation property.\nAllowed values are:" +
 		"\n  'strict' - dynamically specifying files for upload is forbidden, the 'files' property must be used instead" +
