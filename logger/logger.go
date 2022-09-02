@@ -24,7 +24,7 @@ import (
 
 // LogConfig contains logging configuration
 type LogConfig struct {
-	LogFile       string `json:"logFile,omitempty" def:"./log/file-upload.log" descr:"Log file location in storage directory"`
+	LogFile       string `json:"logFile,omitempty" def:"{logFile}" descr:"Log file location in storage directory"`
 	LogLevel      string `json:"logLevel,omitempty" def:"INFO" descr:"Log levels are ERROR, WARN, INFO, DEBUG, TRACE"`
 	LogFileSize   int    `json:"logFileSize,omitempty" def:"2" descr:"Log file size in MB before it gets rotated"`
 	LogFileCount  int    `json:"logFileCount,omitempty" def:"5" descr:"Log file max rotations count"`
@@ -61,7 +61,7 @@ var (
 )
 
 // SetupLogger initializes logger with the provided configuration
-func SetupLogger(logConfig *LogConfig) (io.WriteCloser, error) {
+func SetupLogger(logConfig *LogConfig, componentPrefix string) (io.WriteCloser, error) {
 	loggerOut := io.WriteCloser(&nopWriterCloser{out: os.Stderr})
 	if len(logConfig.LogFile) > 0 {
 		err := os.MkdirAll(filepath.Dir(logConfig.LogFile), 0755)
@@ -83,7 +83,7 @@ func SetupLogger(logConfig *LogConfig) (io.WriteCloser, error) {
 	log.SetOutput(loggerOut)
 	log.SetFlags(logFlags)
 
-	logger = log.New(loggerOut, fmt.Sprintf(prefix, "[FILE UPLOAD]"), logFlags)
+	logger = log.New(loggerOut, fmt.Sprintf(prefix, componentPrefix), logFlags)
 
 	// Parse log level
 	switch strings.ToUpper(logConfig.LogLevel) {
