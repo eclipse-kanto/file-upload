@@ -52,7 +52,7 @@ const (
 	dPrefix = "DEBUG  "
 	tPrefix = "TRACE  "
 
-	prefix = " %-10s"
+	prefix = " %s "
 )
 
 var (

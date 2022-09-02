@@ -29,7 +29,7 @@ func main() {
 	config, warn := flags.ParseFlags(version)
 
 	config.Validate()
-	loggerOut, err := logger.SetupLogger(&config.LogConfig, "[FILE UPLOAD] ")
+	loggerOut, err := logger.SetupLogger(&config.LogConfig, "[FILE UPLOAD]")
 	if err != nil {
 		log.Fatalln("Failed to initialize logger: ", err)
 	}
