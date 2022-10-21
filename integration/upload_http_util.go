@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	port         = 9001
-	https_method = "https.method"
-	https_url    = "https.url"
+	port        = 9001
+	httpsMethod = "https.method"
+	httpsURL    = "https.url"
 )
 
 type serveHandler struct {
@@ -72,8 +72,8 @@ func (uploadHandler *httpUploadHandler) getStartOptions(correlationID string, fi
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
 		"options": map[string]string{
-			https_method: http.MethodPost,
-			https_url:    fmt.Sprintf("http://%s/uploads/%s", uploadHandler.server.Addr, filePath),
+			httpsMethod: http.MethodPost,
+			httpsURL:    fmt.Sprintf("http://%s/uploads/%s", uploadHandler.server.Addr, filePath),
 			fmt.Sprintf("https.header.%s", paramCorrelationID): correlationID,
 		},
 	}

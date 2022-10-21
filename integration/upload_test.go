@@ -34,74 +34,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type testConfig struct {
-	Broker                   string `def:"tcp://localhost:1883"`
-	MqttQuiesceMs            int    `def:"500"`
-	MqttAcknowledgeTimeoutMs int    `def:"3000"`
-
-	DittoAddress string
-
-	DittoUser     string `def:"ditto"`
-	DittoPassword string `def:"ditto"`
-
-	EventTimeoutMs  int `def:"30000"`
-	StatusTimeoutMs int `def:"10000"`
-
-	TimeDeltaMs int `def:"5000"`
-}
-
-type thingConfig struct {
-	DeviceID string `json:"deviceId"`
-	TenantID string `json:"tenantId"`
-	PolicyID string `json:"policyId"`
-}
-
-type uploadSuite struct {
-	suite.Suite
-
-	mqttClient  mqtt.Client
-	dittoClient *ditto.Client
-
-	cfg      *testConfig
-	thingCfg *thingConfig
-
-	thingURL   string
-	featureURL string
-}
-
-type uploadHandler interface {
-	prepare() error
-	getStartOptions(correlationID string, filePath string) map[string]interface{}
-	getContent(correlationID string) ([]byte, error)
-	dispose()
-}
-
-type lastUpload struct {
-	Progress      int    `json:"progress"`
-	CorrelationId string `json:"correlationId"`
-	StartTime     string `json:"startTime"`
-	State         string `json:"state"`
-	EndTime       string `json:"endTime"`
-	Message       string `json:"message"`
-	StatusCode    string `json:"statusCode"`
-}
-
-const (
-	envVariablesPrefix = "SCT"
-	featureID          = "AutoUploadable"
-
-	uploadFilesTimeout   = 20
-	uploadRequestTimeout = 10
-	uploadFilesPattern   = "upload_it_%d.txt"
-	uploadFilesCount     = 5
-
-	configFile         = "/etc/file-upload/config.json"
-	paramCorrelationID = "correlationID"
-	operationTrigger   = "trigger"
-	operationStart     = "start"
-	propertyLastUpload = "lastUpload"
-)
-
 var uploadDir string
 
 func (suite *uploadSuite) SetupSuite() {
@@ -136,7 +68,7 @@ func (suite *uploadSuite) SetupSuite() {
 
 	suite.T().Logf("thing config: %+v", *thingCfg)
 
-	dittoClient, err := ditto.NewClientMQTT(mqttClient, ditto.NewConfiguration())
+	dittoClient, err := ditto.NewClientMqtt(mqttClient, ditto.NewConfiguration())
 	if err == nil {
 		err = dittoClient.Connect()
 	}
@@ -239,21 +171,21 @@ func (suite *uploadSuite) testUpload(uploadHandler uploadHandler) {
 	})
 	defer suite.mqttClient.Unsubscribe(eventTopic)
 
-	correlationId := "test"
-	suite.trigger(correlationId)
+	correlationID := "test"
+	suite.trigger(correlationID)
 	time.Sleep(uploadRequestTimeout * time.Second)
 	suite.T().Logf("%v file upload requests, initiating uploads", len(filePaths))
 
 	filePathsRev := make(map[string]string)
-	for startId, path := range filePaths {
-		filePathsRev[path] = startId
-		suite.execCommand(operationStart, uploadHandler.getStartOptions(startId, path))
+	for startID, path := range filePaths {
+		filePathsRev[path] = startID
+		suite.execCommand(operationStart, uploadHandler.getStartOptions(startID, path))
 	}
-	suite.assertUploadSuccessful(correlationId)
+	suite.assertUploadSuccessful(correlationID)
 	for _, filePath := range files {
-		startId, ok := filePathsRev[filePath]
+		startID, ok := filePathsRev[filePath]
 		require.True(suite.T(), ok, "upload request events")
-		content, err := uploadHandler.getContent(startId)
+		content, err := uploadHandler.getContent(startID)
 		require.Nil(suite.T(), err, "uploaded files")
 		suite.compareContent(filePath, content)
 	}
@@ -263,10 +195,6 @@ func (suite *uploadSuite) compareContent(filePath string, received []byte) {
 	expected, err := ioutil.ReadFile(filePath)
 	require.Nil(suite.T(), err, "uploaded files")
 	require.Equal(suite.T(), expected, received, "uploaded files")
-}
-
-func isTerminal(state string) bool {
-	return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
 }
 
 func (suite *uploadSuite) assertUploadSuccessful(correlationID string) {

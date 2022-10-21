@@ -13,14 +13,18 @@ require (
 	github.com/eclipse/ditto-clients-golang v0.0.0-20211126080253-3e1c6149fede
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/google/uuid v1.3.0
+	github.com/stretchr/testify v1.7.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.7 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 require (
