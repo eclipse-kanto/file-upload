@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/eclipse-kanto/file-upload/client"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -106,7 +107,7 @@ func (suite *uploadSuite) awaitLastUpload(correlationID string, expectedState st
 		if err == nil && len(body) > 0 {
 			lastUpload := &lastUpload{}
 			if err := json.Unmarshal(body, lastUpload); err == nil {
-				if correlationID == lastUpload.CorrelationId && isTerminal(lastUpload.State) {
+				if correlationID == lastUpload.CorrelationID && isTerminal(lastUpload.State) {
 					return lastUpload
 				}
 			}
@@ -114,4 +115,8 @@ func (suite *uploadSuite) awaitLastUpload(correlationID string, expectedState st
 		time.Sleep(time.Second)
 	}
 	return nil
+}
+
+func isTerminal(state string) bool {
+	return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
 }
