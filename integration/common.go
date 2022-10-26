@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type uploadSuite struct {
+type testSuite struct {
 	suite.Suite
 
 	mqttClient  mqtt.Client
@@ -61,8 +61,7 @@ type uploadHandler interface {
 }
 
 const (
-	envVariablesPrefix = "SCT"
-	featureID          = "AutoUploadable"
+	featureID = "AutoUploadable"
 
 	uploadFilesTimeout   = 20
 	uploadRequestTimeout = 10
@@ -74,14 +73,9 @@ const (
 	operationTrigger   = "trigger"
 	operationStart     = "start"
 	propertyLastUpload = "lastUpload"
-)
 
-type lastUpload struct {
-	Progress      int    `json:"progress"`
-	CorrelationID string `json:"correlationId"`
-	StartTime     string `json:"startTime"`
-	State         string `json:"state"`
-	EndTime       string `json:"endTime"`
-	Message       string `json:"message"`
-	StatusCode    string `json:"statusCode"`
-}
+	typeEvents       = "START-SEND-EVENTS"
+	typeLiveEvents   = "START-SEND-LIVE-EVENTS"
+	typeMessages     = "START-SEND-MESSAGES"
+	typeLiveCommands = "START-SEND-LIVE-COMMANDS"
+)
