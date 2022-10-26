@@ -14,17 +14,21 @@ package integration
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
-	"github.com/eclipse-kanto/file-upload/client"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/websocket"
 )
 
-func (suite *uploadSuite) doRequest(method string, url string, params map[string]interface{}) ([]byte, error) {
+func (suite *testSuite) doRequest(method string, url string, contentType string, params map[string]interface{}) ([]byte, error) {
 	var body io.Reader
 	var err error
 	if params != nil {
@@ -38,8 +42,8 @@ func (suite *uploadSuite) doRequest(method string, url string, params map[string
 	if err != nil {
 		return nil, err
 	}
-	if params != nil {
-		req.Header.Add("Content-Type", "application/json")
+	if len(contentType) > 0 {
+		req.Header.Add("Content-Type", contentType)
 	}
 
 	req.SetBasicAuth(suite.cfg.DittoUser, suite.cfg.DittoPassword)
@@ -88,35 +92,119 @@ func getThingConfig(mqttClient mqtt.Client) (*thingConfig, error) {
 	}
 }
 
-func (suite *uploadSuite) trigger(correlationID string) {
-	params := map[string]interface{}{
-		correlationID: correlationID,
-	}
-	suite.execCommand(operationTrigger, params)
-}
-
-func (suite *uploadSuite) execCommand(command string, params map[string]interface{}) {
+func (suite *testSuite) execCommand(command string, params map[string]interface{}) {
 	url := fmt.Sprintf("%s/inbox/messages/%s", suite.featureURL, command)
-	suite.doRequest(http.MethodPost, url, params)
+	suite.doRequest(http.MethodPost, url, "application/json", params)
 }
 
-func (suite *uploadSuite) awaitLastUpload(correlationID string, expectedState string) *lastUpload {
-	url := fmt.Sprintf("%s/properties/%s", suite.featureURL, propertyLastUpload)
-	for i := 0; i < uploadFilesTimeout; i++ {
-		body, err := suite.doRequest(http.MethodGet, url, nil)
-		if err == nil && len(body) > 0 {
-			lastUpload := &lastUpload{}
-			if err := json.Unmarshal(body, lastUpload); err == nil {
-				if correlationID == lastUpload.CorrelationID && isTerminal(lastUpload.State) {
-					return lastUpload
+func (suite *testSuite) startEventListener(eventType string, matcher func(map[string]interface{}) bool) (*websocket.Conn, chan bool) {
+	ws, err := suite.newWSConnection()
+	require.NoError(suite.T(), err)
+
+	subAck := fmt.Sprintf("%s:ACK", eventType)
+	var ackReceived bool
+	ackChan := make(chan bool)
+	wsListener := func(payload []byte) bool {
+		ack := strings.TrimSpace(string(payload))
+		if ack == subAck {
+			ackReceived = true
+			ackChan <- true
+			return false
+		}
+		if !ackReceived {
+			suite.T().Logf("skipping event, acknowledgement not received")
+			return false
+		}
+		props := make(map[string]interface{})
+		err := json.Unmarshal(payload, &props)
+		if err == nil {
+			return matcher(props)
+		}
+
+		suite.T().Logf("error while waiting for event: %v", err)
+		return false
+	}
+	websocket.Message.Send(ws, fmt.Sprintf("%s?filter=like(resource:path,'/features/%s/*')", eventType, featureID))
+	result := suite.beginWSWait(ws, wsListener)
+	require.True(suite.T(), suite.awaitChan(ackChan), "event acknowledgement not received")
+	return ws, result
+}
+
+func (suite *testSuite) beginWSWait(ws *websocket.Conn, check func(payload []byte) bool) chan bool {
+	timeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
+
+	ch := make(chan bool)
+
+	go func() {
+		resultCh := make(chan bool)
+
+		go func() {
+			var payload []byte
+			threshold := time.Now().Add(timeout)
+			for time.Now().Before(threshold) {
+				err := websocket.Message.Receive(ws, &payload)
+				if err == nil {
+					if check(payload) {
+						resultCh <- true
+						return
+					}
+				} else {
+					suite.T().Logf("error while waiting for WS message: %v", err)
 				}
 			}
-		}
-		time.Sleep(time.Second)
-	}
-	return nil
+
+			suite.T().Logf("WS response not received in %v", timeout)
+
+			resultCh <- false
+		}()
+		result := suite.awaitChan(resultCh)
+		ws.Close()
+		ch <- result
+	}()
+
+	return ch
 }
 
-func isTerminal(state string) bool {
-	return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
+func (suite *testSuite) newWSConnection() (*websocket.Conn, error) {
+	wsAddress, err := asWSAddress(suite.cfg.DittoAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/ws/2", wsAddress)
+	cfg, err := websocket.NewConfig(url, suite.cfg.DittoAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	auth := fmt.Sprintf("%s:%s", suite.cfg.DittoUser, suite.cfg.DittoPassword)
+	enc := base64.StdEncoding.EncodeToString([]byte(auth))
+	cfg.Header = http.Header{
+		"Authorization": {"Basic " + enc},
+	}
+
+	return websocket.DialConfig(cfg)
+}
+
+func asWSAddress(address string) (string, error) {
+	url, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+
+	if url.Scheme == "https" {
+		return fmt.Sprintf("wss://%s:%s", url.Hostname(), url.Port()), nil
+	}
+
+	return fmt.Sprintf("ws://%s:%s", url.Hostname(), url.Port()), nil
+}
+
+func (suite *testSuite) awaitChan(ch chan bool) bool {
+	timeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
+	select {
+	case result := <-ch:
+		return result
+	case <-time.After(timeout):
+		return false
+	}
 }
