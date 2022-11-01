@@ -13,6 +13,8 @@
 package integration
 
 import (
+	"testing"
+
 	"github.com/eclipse/ditto-clients-golang"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/suite"
@@ -45,6 +47,9 @@ type testConfig struct {
 	StatusTimeoutMs int `def:"10000"`
 
 	TimeDeltaMs int `def:"5000"`
+
+	UploadDir  string
+	HTTPServer string
 }
 
 type thingConfig struct {
@@ -53,11 +58,10 @@ type thingConfig struct {
 	PolicyID string `json:"policyId"`
 }
 
-type uploadHandler interface {
-	prepare() error
+type upload interface {
 	getStartOptions(correlationID string, filePath string) map[string]interface{}
 	getContent(correlationID string) ([]byte, error)
-	dispose()
+	cleanup(t *testing.T)
 }
 
 const (
@@ -70,6 +74,7 @@ const (
 
 	configFile         = "/etc/file-upload/config.json"
 	paramCorrelationID = "correlationID"
+	paramOptions       = "options"
 	operationTrigger   = "trigger"
 	operationStart     = "start"
 	propertyLastUpload = "lastUpload"

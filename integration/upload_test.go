@@ -24,14 +24,13 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/file-upload/client"
+	"github.com/eclipse-kanto/file-upload/uploaders"
 	"github.com/eclipse/ditto-clients-golang"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
-
-var uploadDir string
 
 func (suite *testSuite) SetupSuite() {
 	cfg := &testConfig{}
@@ -40,6 +39,9 @@ func (suite *testSuite) SetupSuite() {
 
 	if err := initConfigFromEnv(cfg); err != nil {
 		suite.T().Skip(err)
+	}
+	if len(cfg.UploadDir) == 0 {
+		suite.T().Skip("UPLOAD_DIR variable must be set, pointing to test upload directory")
 	}
 
 	suite.T().Logf("test config: %+v", *cfg)
@@ -52,7 +54,6 @@ func (suite *testSuite) SetupSuite() {
 		SetAutoReconnect(true)
 
 	mqttClient := mqtt.NewClient(opts)
-
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		require.NoError(suite.T(), token.Error(), "connect to MQTT broker")
 	}
@@ -82,11 +83,7 @@ func (suite *testSuite) SetupSuite() {
 
 	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DittoAddress, "/"), thingCfg.DeviceID)
 	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
-
-	uploadDir, err = setupUploadDir()
-	require.Nil(suite.T(), err, "get configured file upload directory")
-	require.NotEmpty(suite.T(), uploadDir, "get configured file upload directory")
-	suite.T().Logf("upload dir - %s", uploadDir)
+	suite.checkUploadDir()
 }
 
 func (suite *testSuite) TearDownSuite() {
@@ -94,41 +91,36 @@ func (suite *testSuite) TearDownSuite() {
 	suite.mqttClient.Disconnect(uint(suite.cfg.MqttQuiesceMs))
 }
 
-func setupUploadDir() (string, error) {
-	var uploadDir string
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return uploadDir, err
-	}
-	config := make(map[string]interface{})
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return uploadDir, err
-	}
-	if files, ok := config["files"]; ok {
-		uploadDir = filepath.Dir(files.(string))
-	}
-	return uploadDir, nil
-}
-
 func TestFileUpload(t *testing.T) {
 	suite.Run(t, new(testSuite))
 }
 
-func (suite *testSuite) TestUploadHTTP() {
-	suite.T().Log("test file upload over HTTP")
-	uploadHandler := newHTTPUploadHandler()
-	suite.testUpload(uploadHandler)
+func (suite *testSuite) TestHTTPUpload() {
+	if len(suite.cfg.HTTPServer) == 0 {
+		suite.T().Skip("HTTP_SERVER variable must be set")
+	}
+	upload := newHTTPUpload(suite.cfg.HTTPServer)
+	suite.testUpload(upload)
 }
 
-func (suite *testSuite) testUpload(uploadHandler uploadHandler) {
-	files, err := createTestFiles(uploadDir)
-	defer deleteTestFiles(files)
-	require.Nil(suite.T(), err, "create test files")
+func (suite *testSuite) TestAzureUpload() {
+	options, err := uploaders.GetAzureTestOptions(suite.T())
+	require.Nil(suite.T(), err, "error getting azure test options")
+	upload := newAzureUpload(options)
+	suite.testUpload(upload)
+}
 
-	err = uploadHandler.prepare()
-	require.Nil(suite.T(), err, "prepare upload handler")
-	defer uploadHandler.dispose()
+func (suite *testSuite) TestAWSUpload() {
+	options := uploaders.GetAWSTestOptions(suite.T())
+	upload, err := newAWSUpload(options)
+	require.Nil(suite.T(), err, "error creating AWS client")
+	suite.testUpload(upload)
+}
+
+func (suite *testSuite) testUpload(testUpload upload) {
+	files, err := createTestFiles(suite.cfg.UploadDir)
+	defer deleteTestFiles(files)
+	require.Nil(suite.T(), err, "creating test files failed")
 
 	type uploadRequest struct {
 		CorrelationID string            `json:"correlationId"`
@@ -136,11 +128,8 @@ func (suite *testSuite) testUpload(uploadHandler uploadHandler) {
 	}
 	requestPath := fmt.Sprintf("/features/%s/outbox/messages/request", featureID)
 	filePaths := make(map[string]string)
-	finishedGettingFilePaths := false
+	triggerCh := make(chan bool)
 	conn, _ := suite.startEventListener(typeMessages, func(props map[string]interface{}) bool {
-		if finishedGettingFilePaths {
-			return true
-		}
 		if requestPath == props["path"] {
 			if value, ok := props["value"]; ok {
 				jsonValue, err := json.Marshal(value)
@@ -154,18 +143,23 @@ func (suite *testSuite) testUpload(uploadHandler uploadHandler) {
 				if path, ok := uploadRequest.Options["file.path"]; ok {
 					suite.T().Logf("file upload request: %s, with correlation id: %s", path, uploadRequest.CorrelationID)
 					filePaths[uploadRequest.CorrelationID] = path
-					return false
+					finish := len(filePaths) == uploadFilesCount
+					if finish {
+						triggerCh <- true
+					}
+					return finish
 				}
 			}
 		}
 		return false
 	})
 	defer conn.Close()
-	correlationID := "test"
-	suite.trigger(correlationID)
-	time.Sleep(uploadRequestTimeout * time.Second)
-	finishedGettingFilePaths = true
+	suite.trigger("test")
+	suite.awaitChan(triggerCh)
+	require.Equal(suite.T(), uploadFilesCount, len(filePaths), "wrong file upload request events count")
 	suite.T().Logf("%v file upload requests, initiating uploads", len(filePaths))
+
+	defer testUpload.cleanup(suite.T())
 
 	path := fmt.Sprintf("/features/%s/properties/lastUpload", featureID)
 	var lastUploadState string
@@ -183,15 +177,15 @@ func (suite *testSuite) testUpload(uploadHandler uploadHandler) {
 	filePathsRev := make(map[string]string)
 	for startID, path := range filePaths {
 		filePathsRev[path] = startID
-		suite.execCommand(operationStart, uploadHandler.getStartOptions(startID, path))
+		suite.execCommand(operationStart, testUpload.getStartOptions(startID, path))
 	}
-	require.True(suite.T(), suite.awaitChan(chEvent), "upload finished event not received")
+	require.True(suite.T(), suite.awaitChan(chEvent), "event for finished upload not received")
 	require.Equal(suite.T(), client.StateSuccess, lastUploadState, "wrong final upload state")
 	for _, filePath := range files {
 		startID, ok := filePathsRev[filePath]
-		require.True(suite.T(), ok, "upload request events")
-		content, err := uploadHandler.getContent(startID)
-		require.Nil(suite.T(), err, "uploaded files")
+		require.True(suite.T(), ok, fmt.Sprintf("no upload request event for %s", filePath))
+		content, err := testUpload.getContent(startID)
+		require.Nil(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
 		suite.compareContent(filePath, content)
 	}
 }
@@ -203,10 +197,22 @@ func (suite *testSuite) trigger(correlationID string) {
 	suite.execCommand(operationTrigger, params)
 }
 
+func (suite *testSuite) checkUploadDir() {
+	files, err := os.ReadDir(suite.cfg.UploadDir)
+	if err != nil {
+		suite.T().Skipf("upload dir %s cannot be read - %v", suite.cfg.UploadDir, err)
+	}
+	for _, file := range files {
+		if !file.IsDir() {
+			suite.T().Skipf("upload dir %s must be empty", suite.cfg.UploadDir)
+		}
+	}
+}
+
 func (suite *testSuite) compareContent(filePath string, received []byte) {
 	expected, err := ioutil.ReadFile(filePath)
-	require.Nil(suite.T(), err, "uploaded files")
-	require.Equal(suite.T(), expected, received, "uploaded files")
+	require.Nil(suite.T(), err, fmt.Sprintf("cannot read file %s", filePath))
+	require.Equal(suite.T(), expected, received, fmt.Sprintf("uploaded content of file %s differs from original", filePath))
 }
 
 func createTestFiles(dir string) ([]string, error) {

@@ -21,6 +21,12 @@ import (
 	"unicode"
 )
 
+var (
+	envMappings = map[string]string{
+		"HTTPServer": "HTTP_SERVER",
+	}
+)
+
 func initConfigFromEnv(cfg interface{}) error {
 	v := reflect.ValueOf(cfg).Elem()
 	t := v.Type()
@@ -30,7 +36,7 @@ func initConfigFromEnv(cfg interface{}) error {
 
 		configValue := f.Tag.Get("def")
 
-		envName := toSnakeCase(f.Name)
+		envName := getEnvName(f.Name)
 		if env, ok := os.LookupEnv(envName); ok {
 			configValue = env
 		}
@@ -66,7 +72,7 @@ func getConfigHelp(cfg interface{}) string {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 
-		name := toSnakeCase(f.Name)
+		name := getEnvName(f.Name)
 
 		result.WriteString("\n\t - ")
 		result.WriteString(name)
@@ -78,6 +84,13 @@ func getConfigHelp(cfg interface{}) string {
 	}
 
 	return result.String()
+}
+
+func getEnvName(name string) string {
+	if envName, ok := envMappings[name]; ok {
+		return envName
+	}
+	return toSnakeCase(name)
 }
 
 func toSnakeCase(name string) string {
