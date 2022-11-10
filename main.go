@@ -41,17 +41,13 @@ func main() {
 		logger.Warn(warn)
 	}
 
-	logger.Infof("files glob: '%s', mode: '%s'", config.Files, config.Mode)
 	logger.Infof("uploadable config: %+v", config.UploadableConfig)
 	logger.Infof("log config: %+v", config.LogConfig)
+	logger.Infof("files glob: '%s', mode: '%s'", config.Files, config.Mode)
 
-	if config.Files == "" {
-		logger.Debug("No glob filter provided!")
-	} else {
-		files, err := filepath.Glob(config.Files)
-		if err != nil {
-			log.Fatalln(err)
-		}
+	if logger.IsDebugEnabled() && config.Files != "" {
+		//no err expected it's already validated
+		files, _ := filepath.Glob(config.Files)
 		logger.Debugf("Files matching glob filter '%s': %v\n", config.Files, files)
 	}
 
