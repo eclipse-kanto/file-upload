@@ -13,55 +13,28 @@
 package integration
 
 import (
-	"testing"
-
-	"github.com/eclipse/ditto-clients-golang"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/eclipse-kanto/kanto/integration/util"
 	"github.com/stretchr/testify/suite"
 )
 
-type testSuite struct {
+type uploadTestSuite struct {
 	suite.Suite
 
-	mqttClient  mqtt.Client
-	dittoClient *ditto.Client
-
-	cfg      *testConfig
-	thingCfg *thingConfig
-
-	thingURL   string
-	featureURL string
+	initializer *util.SuiteInitializer
+	thingURL    string
+	featureURL  string
+	cfg         *uploadTestConfig
 }
 
-type testConfig struct {
-	Broker                   string `def:"tcp://localhost:1883"`
-	MqttQuiesceMs            int    `def:"500"`
-	MqttAcknowledgeTimeoutMs int    `def:"3000"`
-
-	DittoAddress string
-
-	DittoUser     string `def:"ditto"`
-	DittoPassword string `def:"ditto"`
-
-	EventTimeoutMs  int `def:"30000"`
-	StatusTimeoutMs int `def:"10000"`
-
-	TimeDeltaMs int `def:"5000"`
-
-	UploadDir  string
-	HTTPServer string
-}
-
-type thingConfig struct {
-	DeviceID string `json:"deviceId"`
-	TenantID string `json:"tenantId"`
-	PolicyID string `json:"policyId"`
+type uploadTestConfig struct {
+	UploadDir  string `env:"UPLOAD_DIR"`
+	HTTPServer string `env:"HTTP_SERVER"`
 }
 
 type upload interface {
-	getStartOptions(correlationID string, filePath string) map[string]interface{}
-	getContent(correlationID string) ([]byte, error)
-	cleanup(t *testing.T)
+	requestUpload(correlationID string, filePath string) map[string]interface{}
+	download(correlationID string) ([]byte, error)
+	removeUploads()
 }
 
 const (
@@ -72,15 +45,12 @@ const (
 	uploadFilesPattern   = "upload_it_%d.txt"
 	uploadFilesCount     = 5
 
-	configFile         = "/etc/file-upload/config.json"
 	paramCorrelationID = "correlationID"
 	paramOptions       = "options"
 	operationTrigger   = "trigger"
 	operationStart     = "start"
 	propertyLastUpload = "lastUpload"
 
-	typeEvents       = "START-SEND-EVENTS"
-	typeLiveEvents   = "START-SEND-LIVE-EVENTS"
-	typeMessages     = "START-SEND-MESSAGES"
-	typeLiveCommands = "START-SEND-LIVE-COMMANDS"
+	typeEvents   = "START-SEND-EVENTS"
+	typeMessages = "START-SEND-MESSAGES"
 )

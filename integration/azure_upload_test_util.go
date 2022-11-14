@@ -27,17 +27,19 @@ import (
 type azureUpload struct {
 	options map[string]string
 	uploads map[string]string
+	t       *testing.T
 }
 
-func newAzureUpload(options map[string]string) *azureUpload {
+func newAzureUpload(t *testing.T, options map[string]string) *azureUpload {
 	options[client.StorageProvider] = uploaders.StorageProviderAzure
 	return &azureUpload{
 		options: options,
 		uploads: make(map[string]string),
+		t:       t,
 	}
 }
 
-func (upload *azureUpload) getStartOptions(correlationID string, filePath string) map[string]interface{} {
+func (upload *azureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
 	upload.uploads[correlationID] = file
 	return map[string]interface{}{
@@ -46,7 +48,7 @@ func (upload *azureUpload) getStartOptions(correlationID string, filePath string
 	}
 }
 
-func (upload *azureUpload) getContent(correlationID string) ([]byte, error) {
+func (upload *azureUpload) download(correlationID string) ([]byte, error) {
 	file, ok := upload.uploads[correlationID]
 	if !ok {
 		return nil, fmt.Errorf("no upload for correlation id: %s", correlationID)
@@ -72,7 +74,7 @@ func (upload *azureUpload) getContent(correlationID string) ([]byte, error) {
 	return downloadedData.Bytes(), err
 }
 
-func (upload *azureUpload) cleanup(t *testing.T) {
+func (upload *azureUpload) removeUploads() {
 	for _, file := range upload.uploads {
 		url := fmt.Sprint(upload.options[uploaders.AzureEndpoint], upload.options[uploaders.AzureContainerName],
 			"/", file, "?", upload.options[uploaders.AzureSAS])
@@ -81,9 +83,9 @@ func (upload *azureUpload) cleanup(t *testing.T) {
 		if err == nil {
 			optons := azblob.DeleteBlobOptions{}
 			blockBlobClient.Delete(context.Background(), &optons)
-			t.Logf("successfully deleted %s from azure storage", file)
+			upload.t.Logf("successfully deleted %s from azure storage", file)
 		} else {
-			t.Logf("error deleting %s from azure storage - %v", file, err)
+			upload.t.Logf("error deleting %s from azure storage - %v", file, err)
 		}
 	}
 }

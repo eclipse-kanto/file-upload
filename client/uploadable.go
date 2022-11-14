@@ -181,7 +181,7 @@ func (u *AutoUploadable) Connect(mqttClient MQTT.Client, edgeCfg *EdgeConfigurat
 			})
 
 	var err error
-	if u.client, err = ditto.NewClientMqtt(mqttClient, config); err != nil {
+	if u.client, err = ditto.NewClientMQTT(mqttClient, config); err != nil {
 		logger.Error(err)
 		return
 	}
@@ -265,7 +265,7 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 
 	logger.Infof("message received: path:=%s, topic=%s, value=%v", msg.Path, msg.Topic, msg.Value)
 
-	if model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityID).String() != u.deviceID {
+	if model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName).String() != u.deviceID {
 		return
 	}
 
