@@ -28,33 +28,35 @@ const (
 type httpUpload struct {
 	url     string
 	uploads map[string]string
+	t       *testing.T
 }
 
-func newHTTPUpload(url string) *httpUpload {
+func newHTTPUpload(t *testing.T, url string) *httpUpload {
 	return &httpUpload{
 		url:     url,
 		uploads: make(map[string]string),
+		t:       t,
 	}
 }
 
-func (upload *httpUpload) getStartOptions(correlationID string, filePath string) map[string]interface{} {
+func (upload *httpUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
 	url := fmt.Sprintf("%s/%s", upload.url, file)
 	upload.uploads[correlationID] = url
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
 		paramOptions: map[string]string{
-			httpsMethod: http.MethodPost,
+			httpsMethod: http.MethodPut,
 			httpsURL:    url,
 			fmt.Sprintf("https.header.%s", paramCorrelationID): correlationID,
 		},
 	}
 }
 
-func (upload *httpUpload) getContent(correlationID string) ([]byte, error) {
+func (upload *httpUpload) download(correlationID string) ([]byte, error) {
 	url, ok := upload.uploads[correlationID]
 	if !ok {
-		return nil, fmt.Errorf("no upload for correlation id: %s", correlationID)
+		return nil, fmt.Errorf("no upload with correlation id: %s", correlationID)
 	}
 	response, err := http.Get(url)
 	if err != nil {
@@ -64,20 +66,20 @@ func (upload *httpUpload) getContent(correlationID string) ([]byte, error) {
 	return ioutil.ReadAll(response.Body)
 }
 
-func (upload *httpUpload) cleanup(t *testing.T) {
+func (upload *httpUpload) removeUploads() {
 	client := &http.Client{}
 	for _, url := range upload.uploads {
 		req, err := http.NewRequest(http.MethodDelete, url, nil)
 		if err != nil {
-			t.Logf("error creating delete request to %s - %v", url, err)
+			upload.t.Logf("error creating delete request to %s - %v", url, err)
 			continue
 		}
 		resp, err := client.Do(req)
 		if resp != nil {
-			t.Logf("delete response code %d from %s", resp.StatusCode, url)
+			upload.t.Logf("delete response code %d from %s", resp.StatusCode, url)
 			defer resp.Body.Close()
 		} else {
-			t.Logf("error sending delete request to %s - %v", url, err)
+			upload.t.Logf("error sending delete request to %s - %v", url, err)
 		}
 	}
 }

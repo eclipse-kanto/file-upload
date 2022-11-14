@@ -28,9 +28,10 @@ type awsUpload struct {
 	options map[string]string
 	uploads map[string]string
 	client  *s3.Client
+	t       *testing.T
 }
 
-func newAWSUpload(options map[string]string) (*awsUpload, error) {
+func newAWSUpload(t *testing.T, options map[string]string) (*awsUpload, error) {
 	options[client.StorageProvider] = uploaders.StorageProviderAWS
 	client, err := uploaders.GetAWSClient(options)
 	if err != nil {
@@ -40,10 +41,11 @@ func newAWSUpload(options map[string]string) (*awsUpload, error) {
 		options: options,
 		uploads: make(map[string]string),
 		client:  client,
+		t:       t,
 	}, nil
 }
 
-func (upload *awsUpload) getStartOptions(correlationID string, filePath string) map[string]interface{} {
+func (upload *awsUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	upload.uploads[correlationID] = filePath
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
@@ -51,7 +53,7 @@ func (upload *awsUpload) getStartOptions(correlationID string, filePath string) 
 	}
 }
 
-func (upload *awsUpload) getContent(correlationID string) ([]byte, error) {
+func (upload *awsUpload) download(correlationID string) ([]byte, error) {
 	filePath, ok := upload.uploads[correlationID]
 	if !ok {
 		return nil, fmt.Errorf("no upload for correlation id: %s", correlationID)
@@ -68,7 +70,7 @@ func (upload *awsUpload) getContent(correlationID string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (upload *awsUpload) cleanup(t *testing.T) {
+func (upload *awsUpload) removeUploads() {
 	for _, filePath := range upload.uploads {
 		di := s3.DeleteObjectInput{
 			Bucket: aws.String(upload.options[uploaders.AWSBucket]),
@@ -76,9 +78,9 @@ func (upload *awsUpload) cleanup(t *testing.T) {
 		}
 
 		if _, err := upload.client.DeleteObject(context.TODO(), &di); err != nil {
-			t.Logf("error deleting %s from aws storage - %v", filePath, err)
+			upload.t.Logf("error deleting %s from aws storage - %v", filePath, err)
 		} else {
-			t.Logf("successfully deleted %s from aws storage", filePath)
+			upload.t.Logf("successfully deleted %s from aws storage", filePath)
 		}
 	}
 }
