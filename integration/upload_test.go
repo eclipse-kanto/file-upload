@@ -55,7 +55,7 @@ func (suite *uploadTestSuite) SetupSuite() {
 	suite.checkUploadDir()
 
 	thingCfg, err := util.GetThingConfiguration(suite.initializer.Cfg, suite.initializer.MQTTClient)
-	require.Nil(suite.T(), err, "failed to get thing configuration")
+	require.NoError(suite.T(), err, "failed to get thing configuration")
 
 	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(suite.initializer.Cfg.DigitalTwinAPIAddress, "/"),
 		thingCfg.DeviceID)
@@ -80,7 +80,7 @@ func (suite *uploadTestSuite) TestHTTPUpload() {
 
 func (suite *uploadTestSuite) TestAzureUpload() {
 	options, err := uploaders.GetAzureTestOptions(suite.T())
-	require.Nil(suite.T(), err, "error getting azure test options")
+	require.NoError(suite.T(), err, "error getting azure test options")
 	upload := newAzureUpload(suite.T(), options)
 	suite.testUpload(upload)
 }
@@ -88,7 +88,7 @@ func (suite *uploadTestSuite) TestAzureUpload() {
 func (suite *uploadTestSuite) TestAWSUpload() {
 	options := uploaders.GetAWSTestOptions(suite.T())
 	upload, err := newAWSUpload(suite.T(), options)
-	require.Nil(suite.T(), err, "error creating AWS client")
+	require.NoError(suite.T(), err, "error creating AWS client")
 	suite.testUpload(upload)
 }
 
@@ -97,7 +97,7 @@ func (suite *uploadTestSuite) triggerUploads() map[string]string {
 	requestedFiles := make(map[string]string)
 
 	connMessages, err := util.NewDigitalTwinWSConnection(suite.initializer.Cfg)
-	require.Nil(suite.T(), err, "Failed to create websocket connection")
+	require.NoError(suite.T(), err, "Failed to create websocket connection")
 	defer connMessages.Close()
 
 	suite.startListening(connMessages, typeMessages)
@@ -136,7 +136,7 @@ func (suite *uploadTestSuite) triggerUploads() map[string]string {
 
 func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map[string]string, files []string) {
 	connEvents, err := util.NewDigitalTwinWSConnection(suite.initializer.Cfg)
-	require.Nil(suite.T(), err, "Failed to create websocket connection")
+	require.NoError(suite.T(), err, "Failed to create websocket connection")
 	defer connEvents.Close()
 
 	suite.startListening(connEvents, typeEvents)
@@ -173,7 +173,7 @@ func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map
 		startID, ok := requestedFilesRev[filePath]
 		require.True(suite.T(), ok, fmt.Sprintf("no upload request event for %s", filePath))
 		content, err := testUpload.download(startID)
-		require.Nil(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
+		require.NoError(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
 		suite.compareContent(filePath, content)
 	}
 }
@@ -181,7 +181,7 @@ func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map
 func (suite *uploadTestSuite) testUpload(testUpload upload) {
 	files, err := createTestFiles(suite.cfg.UploadDir)
 	defer deleteTestFiles(files)
-	require.Nil(suite.T(), err, "creating test files failed")
+	require.NoError(suite.T(), err, "creating test files failed")
 
 	requestedFiles := suite.triggerUploads()
 	defer testUpload.removeUploads()
@@ -208,7 +208,7 @@ func (suite *uploadTestSuite) startListening(conn *websocket.Conn, eventType str
 
 func (suite *uploadTestSuite) compareContent(filePath string, received []byte) {
 	expected, err := ioutil.ReadFile(filePath)
-	require.Nil(suite.T(), err, fmt.Sprintf("cannot read file %s", filePath))
+	require.NoError(suite.T(), err, fmt.Sprintf("cannot read file %s", filePath))
 	require.Equal(suite.T(), string(expected), string(received), fmt.Sprintf("uploaded content of file %s differs from original", filePath))
 }
 
