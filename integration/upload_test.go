@@ -46,12 +46,12 @@ type uploadStatus struct {
 }
 
 func (suite *uploadTestSuite) SetupSuite() {
-	suite.initializer = &util.SuiteInitializer{}
+	suite.initializer = util.SuiteInitializer{}
 	suite.initializer.Setup(suite.T())
 
 	opts := env.Options{RequiredIfNoDef: false}
-	suite.cfg = &uploadTestConfig{}
-	require.NoError(suite.T(), env.Parse(suite.cfg, opts), "failed to process environment variables")
+	suite.cfg = uploadTestConfig{}
+	require.NoError(suite.T(), env.Parse(&suite.cfg, opts), "failed to process environment variables")
 	suite.checkUploadDir()
 
 	thingCfg, err := util.GetThingConfiguration(suite.initializer.Cfg, suite.initializer.MQTTClient)
@@ -102,9 +102,10 @@ func (suite *uploadTestSuite) triggerUploads() map[string]string {
 
 	suite.startListening(connMessages, typeMessages)
 	url := fmt.Sprintf("%s/inbox/messages/%s", suite.featureURL, operationTrigger)
-	util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, map[string]interface{}{
+	_, err = util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, map[string]interface{}{
 		paramCorrelationID: "test",
 	})
+	require.NoError(suite.T(), err, "error sending digital twin request for trigger operation")
 	err = util.ProcessWSMessages(suite.initializer.Cfg, connMessages,
 		func(event *protocol.Envelope) (bool, error) {
 			if requestPath == event.Path {
@@ -146,7 +147,8 @@ func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map
 
 	for startID, path := range requestedFiles {
 		requestedFilesRev[path] = startID
-		util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, testUpload.requestUpload(startID, path))
+		_, err := util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, testUpload.requestUpload(startID, path))
+		require.NoError(suite.T(), err, "error sending digital twin request for trigger operation")
 	}
 
 	lastUploadPath := fmt.Sprintf("/features/%s/properties/%s", featureID, propertyLastUpload)
