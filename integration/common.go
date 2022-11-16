@@ -20,10 +20,10 @@ import (
 type uploadTestSuite struct {
 	suite.Suite
 
-	initializer *util.SuiteInitializer
+	initializer util.SuiteInitializer
 	thingURL    string
 	featureURL  string
-	cfg         *uploadTestConfig
+	cfg         uploadTestConfig
 }
 
 type uploadTestConfig struct {
