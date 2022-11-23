@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -31,11 +30,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/caarlos0/env/v6"
 )
 
 // AzureTestCredentials holds credentials for Azure Blob upload
 type AzureTestCredentials struct {
-	accountName, containerName, clientID, tenantID, clientSecret string
+	AccountName   string `env:"AZURE_ACCOUNT_NAME"`
+	ContainerName string `env:"AZURE_CONTAINER_NAME"`
+	ClientID      string `env:"AZURE_CLIENT_ID"`
+	TenantID      string `env:"AZURE_TENANT_ID"`
+	ClientSecret  string `env:"AZURE_CLIENT_SECRET"`
 }
 
 const (
@@ -83,9 +87,9 @@ func generateSignarute(udk azblob.UserDelegationKey, azureTestCredentials AzureT
 		sasPermissions,
 		"", // empty startTime
 		*keyInfo.Expiry,
-		fmt.Sprintf(blobPath, azureTestCredentials.accountName, azureTestCredentials.containerName),
+		fmt.Sprintf(blobPath, azureTestCredentials.AccountName, azureTestCredentials.ContainerName),
 		*udk.SignedOid,
-		azureTestCredentials.tenantID,
+		azureTestCredentials.TenantID,
 		*keyInfo.Start,
 		*keyInfo.Expiry,
 		service,
@@ -117,14 +121,12 @@ func generateSignarute(udk azblob.UserDelegationKey, azureTestCredentials AzureT
 	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
-func getOneHourAzureSAS(t *testing.T, azureTestCredentials AzureTestCredentials) (string, error) {
-	t.Helper()
-
+func getOneHourAzureSAS(azureTestCredentials AzureTestCredentials) (string, error) {
 	options := azidentity.ClientSecretCredentialOptions{}
-	credential, err := azidentity.NewClientSecretCredential(azureTestCredentials.tenantID, azureTestCredentials.clientID,
-		azureTestCredentials.clientSecret, &options)
+	credential, err := azidentity.NewClientSecretCredential(azureTestCredentials.TenantID, azureTestCredentials.ClientID,
+		azureTestCredentials.ClientSecret, &options)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	startTime := time.Now().UTC().Format(sasTimeFormat)
 	expiryTime := time.Now().Add(time.Hour).UTC().Format(sasTimeFormat)
@@ -132,13 +134,13 @@ func getOneHourAzureSAS(t *testing.T, azureTestCredentials AzureTestCredentials)
 		Start:  &startTime,
 		Expiry: &expiryTime,
 	}
-	udk, err := requestUserDelegationKey(fmt.Sprintf(azureURLPattern, azureTestCredentials.accountName), keyInfo, credential)
+	udk, err := requestUserDelegationKey(fmt.Sprintf(azureURLPattern, azureTestCredentials.AccountName), keyInfo, credential)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	signature, err := generateSignarute(udk, azureTestCredentials, keyInfo)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return generateEncodedSAS(udk, azureTestCredentials, keyInfo, signature), nil
 }
@@ -148,7 +150,7 @@ func generateEncodedSAS(udk azblob.UserDelegationKey, azureTestCredentials Azure
 	appendToQuery(&result, "sv", *udk.SignedVersion)
 	appendToQuery(&result, "se", *keyInfo.Expiry)
 	appendToQuery(&result, "skoid", *udk.SignedOid)
-	appendToQuery(&result, "sktid", azureTestCredentials.tenantID)
+	appendToQuery(&result, "sktid", azureTestCredentials.TenantID)
 	appendToQuery(&result, "skt", *keyInfo.Start)
 	appendToQuery(&result, "ske", *keyInfo.Expiry)
 	appendToQuery(&result, "sks", service)
@@ -166,51 +168,40 @@ func appendToQuery(result *bytes.Buffer, key, val string) {
 	result.WriteString(key + "=" + url.QueryEscape(val))
 }
 
-func getAzureTestCredentials(t *testing.T) AzureTestCredentials {
-	t.Helper()
-
-	accountNameKey, containerNameKey, tenantIDKey, clientIDKey, clientSecretKey :=
-		"AZURE_ACCOUNT_NAME", "AZURE_CONTAINER_NAME", "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"
-	mapping := map[string]string{
-		accountNameKey:   "",
-		containerNameKey: "",
-		tenantIDKey:      "",
-		clientIDKey:      "",
-		clientSecretKey:  "",
-	}
-
-	for key := range mapping {
-		env := os.Getenv(key)
-		if env == "" {
-			t.Skipf("environment variable '%s' not set", key)
-		} else {
-			mapping[key] = env
-		}
-	}
-
-	return AzureTestCredentials{
-		accountName:   mapping[accountNameKey],
-		containerName: mapping[containerNameKey],
-		tenantID:      mapping[tenantIDKey],
-		clientID:      mapping[clientIDKey],
-		clientSecret:  mapping[clientSecretKey],
-	}
+// GetAzureTestCredentials reads azure credentials from environment
+func GetAzureTestCredentials() (AzureTestCredentials, error) {
+	opts := env.Options{RequiredIfNoDef: true}
+	creds := AzureTestCredentials{}
+	err := env.Parse(&creds, opts)
+	return creds, err
 }
 
 // GetAzureTestOptions retrieves the testing options passed to file upload start operation
-func GetAzureTestOptions(t *testing.T) (map[string]string, error) {
-	t.Helper()
-
-	azureTestCredentials := getAzureTestCredentials(t)
-	azureSAS, err := getOneHourAzureSAS(t, azureTestCredentials)
+func GetAzureTestOptions(creds AzureTestCredentials) (map[string]string, error) {
+	azureSAS, err := getOneHourAzureSAS(creds)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]string{
-		AzureEndpoint:      fmt.Sprintf(azureURLPattern, azureTestCredentials.accountName),
+		AzureEndpoint:      fmt.Sprintf(azureURLPattern, creds.AccountName),
 		AzureSAS:           azureSAS,
-		AzureContainerName: azureTestCredentials.containerName,
+		AzureContainerName: creds.ContainerName,
 	}, nil
+}
+
+// RetrieveAzureTestOptions reads azure credentials from environment and converts them to upload options
+func RetrieveAzureTestOptions(t *testing.T) map[string]string {
+	t.Helper()
+
+	creds, err := GetAzureTestCredentials()
+	if err != nil {
+		t.Skipf("Please set azure environment variables(%v).", err)
+	}
+	options, err := GetAzureTestOptions(creds)
+	if err != nil {
+		t.Error(err)
+	}
+	return options
 }
 
 // DeleteUploadedBlob deletes an uploaded blob from azure storage

@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.7.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/caarlos0/env/v6 v6.10.1
-	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221114101725-fadc1f231801
+	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221123073842-14c133d7eb34
 	github.com/eclipse/ditto-clients-golang v0.0.0-20220225085802-cf3b306280d3
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/google/uuid v1.3.0

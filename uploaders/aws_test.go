@@ -33,12 +33,12 @@ func TestAWSUploadWithChecksum(t *testing.T) {
 }
 
 func testAWSUpload(t *testing.T, useChecksum bool) {
-	creds := GetAWSTestOptions(t)
+	options := RetrieveAWSTestOptions(t)
 
-	client, err := GetAWSClient(creds)
+	client, err := GetAWSClient(options)
 	assertNoError(t, err)
 
-	u, err := NewAWSUploader(creds)
+	u, err := NewAWSUploader(options)
 	assertNoError(t, err)
 
 	f, err := os.Open(testFile)
@@ -48,12 +48,12 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 	err = u.UploadFile(f, useChecksum, nil)
 	assertNoError(t, err)
 
-	defer deleteAWSObject(client, testFile, creds[AWSBucket])
+	defer deleteAWSObject(client, testFile, options[AWSBucket])
 
 	downloader := manager.NewDownloader(client)
 	buf := manager.NewWriteAtBuffer([]byte{})
 	_, err = downloader.Download(context.TODO(), buf, &s3.GetObjectInput{
-		Bucket: aws.String(creds[AWSBucket]),
+		Bucket: aws.String(options[AWSBucket]),
 		Key:    aws.String(testFile),
 	})
 	assertNoError(t, err)
@@ -62,12 +62,12 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 }
 
 func TestNewAWSUploaderErrors(t *testing.T) {
-	creds := GetAWSTestOptions(t)
+	options := RetrieveAWSTestOptions(t)
 
 	requiredParams := []string{AWSAccessKeyID, AWSBucket, AWSSecretAccessKey, AWSRegion}
 
 	for _, param := range requiredParams {
-		options := partialCopy(creds, param)
+		options := partialCopy(options, param)
 		u, err := NewAWSUploader(options)
 		assertFailsWith(t, u, err, fmt.Sprintf(missingParameterErrMsg, param))
 	}
