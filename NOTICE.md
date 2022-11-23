@@ -40,7 +40,7 @@ eclipse/paho.mqtt.golang (1.4.1)
 * Project: https://github.com/eclipse/paho.mqtt.golang
 * Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.4.1
 
-eclipse/ditto-clients-golang (v0.0.0-20211126080253-3e1c6149fede)
+eclipse/ditto-clients-golang (v0.0.0-20220225085802-cf3b306280d3)
 
 * License: Eclipse Public License v2.0
 * Project: https://github.com/eclipse/ditto-clients-golang

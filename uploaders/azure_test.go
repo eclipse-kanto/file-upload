@@ -31,8 +31,7 @@ func TestAzureUploadWithChecksum(t *testing.T) {
 }
 
 func testAzureUpload(t *testing.T, useChecksum bool) {
-	options, err := GetAzureTestOptions(t)
-	assertNoError(t, err)
+	options := RetrieveAzureTestOptions(t)
 	u, err := NewAzureUploader(options)
 	assertNoError(t, err)
 
@@ -63,8 +62,8 @@ func testAzureUpload(t *testing.T, useChecksum bool) {
 }
 
 func TestNewAzureUploaderErrors(t *testing.T) {
-	options, err := GetAzureTestOptions(t)
-	assertNoError(t, err)
+	options := RetrieveAzureTestOptions(t)
+
 	requiredParams := []string{AzureContainerName, AzureEndpoint, AzureSAS}
 
 	for _, param := range requiredParams {

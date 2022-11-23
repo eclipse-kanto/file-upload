@@ -13,22 +13,38 @@
 package integration
 
 import (
+	"time"
+
 	"github.com/eclipse-kanto/kanto/integration/util"
 	"github.com/stretchr/testify/suite"
 )
 
-type uploadTestSuite struct {
+type fileUploadSuite struct {
 	suite.Suite
+	util.SuiteInitializer
 
-	initializer util.SuiteInitializer
-	thingURL    string
-	featureURL  string
-	cfg         uploadTestConfig
+	thingURL   string
+	featureURL string
+	uploadCfg  uploadTestConfig
+}
+
+type httpFileUploadSuite struct {
+	fileUploadSuite
+}
+
+type azureFileUploadSuite struct {
+	fileUploadSuite
+}
+
+type awsFileUploadSuite struct {
+	fileUploadSuite
 }
 
 type uploadTestConfig struct {
-	UploadDir  string `env:"UPLOAD_DIR"`
-	HTTPServer string `env:"HTTP_SERVER"`
+	UploadDir            string        `env:"FUT_UPLOAD_DIR"`
+	HTTPServer           string        `env:"FUT_HTTP_SERVER"`
+	UploadFilesTimeout   time.Duration `env:"FUT_UPLOAD_FILES_TIMEOUT" envDefault:"20s"`
+	UploadRequestTimeout time.Duration `env:"FUT_UPLOAD_REQUEST_TIMEOUT" envDefault:"10s"`
 }
 
 type upload interface {
@@ -40,17 +56,23 @@ type upload interface {
 const (
 	featureID = "AutoUploadable"
 
-	uploadFilesTimeout   = 20
-	uploadRequestTimeout = 10
-	uploadFilesPattern   = "upload_it_%d.txt"
-	uploadFilesCount     = 5
+	uploadFilesPattern = "upload_it_%d.txt"
+	uploadFilesCount   = 5
 
 	paramCorrelationID = "correlationID"
 	paramOptions       = "options"
 	operationTrigger   = "trigger"
 	operationStart     = "start"
 	propertyLastUpload = "lastUpload"
+	keyFilePath        = "file.path"
+
+	eventFilterTemplate = "like(resource:path,'%s')"
 
 	typeEvents   = "START-SEND-EVENTS"
 	typeMessages = "START-SEND-MESSAGES"
+
+	msgNoUploadCorrelationID           = "no upload with correlation id: %s"
+	msgErrorExecutingOperation         = "error executing operation %s"
+	msgUnexpectedValue                 = "unexpected value: %v"
+	msgFailedCreateWebsocketConnection = "failed to create websocket connection"
 )

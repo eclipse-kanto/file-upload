@@ -56,7 +56,7 @@ func (upload *awsUpload) requestUpload(correlationID string, filePath string) ma
 func (upload *awsUpload) download(correlationID string) ([]byte, error) {
 	filePath, ok := upload.uploads[correlationID]
 	if !ok {
-		return nil, fmt.Errorf("no upload for correlation id: %s", correlationID)
+		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
 	}
 	downloader := manager.NewDownloader(upload.client)
 	buf := manager.NewWriteAtBuffer([]byte{})

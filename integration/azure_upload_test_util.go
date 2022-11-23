@@ -51,7 +51,7 @@ func (upload *azureUpload) requestUpload(correlationID string, filePath string) 
 func (upload *azureUpload) download(correlationID string) ([]byte, error) {
 	file, ok := upload.uploads[correlationID]
 	if !ok {
-		return nil, fmt.Errorf("no upload for correlation id: %s", correlationID)
+		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
 	}
 	url := fmt.Sprint(upload.options[uploaders.AzureEndpoint], upload.options[uploaders.AzureContainerName],
 		"/", file, "?", upload.options[uploaders.AzureSAS])
@@ -80,12 +80,17 @@ func (upload *azureUpload) removeUploads() {
 			"/", file, "?", upload.options[uploaders.AzureSAS])
 		clientOptions := azblob.ClientOptions{}
 		blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
-		if err == nil {
-			optons := azblob.DeleteBlobOptions{}
-			blockBlobClient.Delete(context.Background(), &optons)
-			upload.t.Logf("successfully deleted %s from azure storage", file)
+		if err != nil {
+			upload.t.Logf("error creating block blob client to azure storage url - %s", url)
+			continue
+		}
+		var deleteResponse azblob.BlobDeleteResponse
+		optons := azblob.DeleteBlobOptions{}
+		deleteResponse, err = blockBlobClient.Delete(context.Background(), &optons)
+		if err != nil {
+			upload.t.Logf("deleting blob %s from azure storage finished with error - %v", file, err)
 		} else {
-			upload.t.Logf("error deleting %s from azure storage - %v", file, err)
+			upload.t.Logf("deleting blob %s from azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
 		}
 	}
 }

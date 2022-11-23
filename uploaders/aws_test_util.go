@@ -14,36 +14,49 @@ package uploaders
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/caarlos0/env/v6"
 )
 
+// AWSTestCredentials holds credentials for AWS S3 storage
+type AWSTestCredentials struct {
+	AccessKeyID     string `env:"AWS_ACCESS_KEY_ID"`
+	SecretAccessKey string `env:"AWS_SECRET_ACCESS_KEY"`
+	Region          string `env:"AWS_REGION"`
+	Bucket          string `env:"AWS_BUCKET"`
+}
+
+// GetAWSTestCredentials reads aws credentials from environment
+func GetAWSTestCredentials() (AWSTestCredentials, error) {
+	opts := env.Options{RequiredIfNoDef: true}
+	creds := AWSTestCredentials{}
+	err := env.Parse(&creds, opts)
+	return creds, err
+}
+
 // GetAWSTestOptions retrieves the testing options passed to file upload start operation
-func GetAWSTestOptions(t *testing.T) map[string]string {
+func GetAWSTestOptions(creds AWSTestCredentials) map[string]string {
+	return map[string]string{
+		AWSBucket:          creds.Bucket,
+		AWSAccessKeyID:     creds.AccessKeyID,
+		AWSSecretAccessKey: creds.SecretAccessKey,
+		AWSRegion:          creds.Region,
+	}
+}
+
+// RetrieveAWSTestOptions reads aws credentials from environment and converts them to upload options
+func RetrieveAWSTestOptions(t *testing.T) map[string]string {
 	t.Helper()
 
-	mapping := map[string]string{
-		"AWS_BUCKET":            AWSBucket,
-		"AWS_ACCESS_KEY_ID":     AWSAccessKeyID,
-		"AWS_SECRET_ACCESS_KEY": AWSSecretAccessKey,
-		"AWS_REGION":            AWSRegion,
+	creds, err := GetAWSTestCredentials()
+	if err != nil {
+		t.Skipf("Please set azure environment variables(%v).", err)
 	}
-
-	creds := map[string]string{}
-	for k, v := range mapping {
-		env := os.Getenv(k)
-		if env != "" {
-			creds[v] = env
-		} else {
-			t.Skipf("environment variable '%s' not set", k)
-		}
-	}
-
-	return creds
+	return GetAWSTestOptions(creds)
 }
 
 // GetAWSClient creates a client to upload, download and delete files from AWS cloud storage

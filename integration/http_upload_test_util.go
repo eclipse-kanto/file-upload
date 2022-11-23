@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	httpsMethod = "https.method"
-	httpsURL    = "https.url"
+	paramHTTPSMethod = "https.method"
+	paramHTTPSURL    = "https.url"
 )
 
 type httpUpload struct {
@@ -46,9 +46,8 @@ func (upload *httpUpload) requestUpload(correlationID string, filePath string) m
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
 		paramOptions: map[string]string{
-			httpsMethod: http.MethodPut,
-			httpsURL:    url,
-			fmt.Sprintf("https.header.%s", paramCorrelationID): correlationID,
+			paramHTTPSMethod: http.MethodPut,
+			paramHTTPSURL:    url,
 		},
 	}
 }
@@ -56,7 +55,7 @@ func (upload *httpUpload) requestUpload(correlationID string, filePath string) m
 func (upload *httpUpload) download(correlationID string) ([]byte, error) {
 	url, ok := upload.uploads[correlationID]
 	if !ok {
-		return nil, fmt.Errorf("no upload with correlation id: %s", correlationID)
+		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
 	}
 	response, err := http.Get(url)
 	if err != nil {
@@ -75,11 +74,11 @@ func (upload *httpUpload) removeUploads() {
 			continue
 		}
 		resp, err := client.Do(req)
-		if resp != nil {
+		if err != nil {
+			upload.t.Logf("error sending delete request to %s - %v", url, err)
+		} else {
 			upload.t.Logf("delete response code %d from %s", resp.StatusCode, url)
 			defer resp.Body.Close()
-		} else {
-			upload.t.Logf("error sending delete request to %s - %v", url, err)
 		}
 	}
 }

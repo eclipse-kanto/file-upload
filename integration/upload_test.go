@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-//go:build integration
+//+go:build integration
 
 package integration
 
@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +31,6 @@ import (
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/websocket"
 )
 
 type uploadRequest struct {
@@ -45,134 +43,144 @@ type uploadStatus struct {
 	Progress int    `json:"progress"`
 }
 
-func (suite *uploadTestSuite) SetupSuite() {
-	suite.initializer = util.SuiteInitializer{}
-	suite.initializer.Setup(suite.T())
+func (suite *fileUploadSuite) SetupSuite() {
+	suite.Setup(suite.T())
 
 	opts := env.Options{RequiredIfNoDef: false}
-	suite.cfg = uploadTestConfig{}
-	require.NoError(suite.T(), env.Parse(&suite.cfg, opts), "failed to process environment variables")
+	suite.uploadCfg = uploadTestConfig{}
+	require.NoError(suite.T(), env.Parse(&suite.uploadCfg, opts), "failed to process upload environment variables")
+	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
 	suite.checkUploadDir()
 
-	thingCfg, err := util.GetThingConfiguration(suite.initializer.Cfg, suite.initializer.MQTTClient)
-	require.NoError(suite.T(), err, "failed to get thing configuration")
-
-	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(suite.initializer.Cfg.DigitalTwinAPIAddress, "/"),
-		thingCfg.DeviceID)
-	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
+	fmt.Println(suite.ThingCfg)
+	suite.thingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
+	suite.featureURL = util.GetFeatureURL(suite.thingURL, featureID)
 }
 
-func (suite *uploadTestSuite) TearDownSuite() {
-	suite.initializer.TearDown()
+func (suite *fileUploadSuite) TearDownSuite() {
+	suite.TearDown()
 }
 
-func TestFileUpload(t *testing.T) {
-	suite.Run(t, new(uploadTestSuite))
+func TestFileUploadHTTP(t *testing.T) {
+	suite.Run(t, new(httpFileUploadSuite))
 }
 
-func (suite *uploadTestSuite) TestHTTPUpload() {
-	if len(suite.cfg.HTTPServer) == 0 {
-		suite.T().Skip("HTTP_SERVER variable must be set")
+func TestFileUploadAzure(t *testing.T) {
+	suite.Run(t, new(azureFileUploadSuite))
+}
+
+func TestFileUploadAWS(t *testing.T) {
+	suite.Run(t, new(awsFileUploadSuite))
+}
+
+func (suite *httpFileUploadSuite) TestFileUpload() {
+	if len(suite.uploadCfg.HTTPServer) == 0 {
+		suite.T().Fatal("http server must be set")
 	}
-	upload := newHTTPUpload(suite.T(), suite.cfg.HTTPServer)
+	upload := newHTTPUpload(suite.T(), suite.uploadCfg.HTTPServer)
 	suite.testUpload(upload)
 }
 
-func (suite *uploadTestSuite) TestAzureUpload() {
-	options, err := uploaders.GetAzureTestOptions(suite.T())
+func (suite *azureFileUploadSuite) TestFileUpload() {
+	creds, err := uploaders.GetAzureTestCredentials()
+	require.NoError(suite.T(), err, "please set azure environment variables.")
+	options, err := uploaders.GetAzureTestOptions(creds)
 	require.NoError(suite.T(), err, "error getting azure test options")
 	upload := newAzureUpload(suite.T(), options)
 	suite.testUpload(upload)
 }
 
-func (suite *uploadTestSuite) TestAWSUpload() {
-	options := uploaders.GetAWSTestOptions(suite.T())
+func (suite *awsFileUploadSuite) TestFileUpload() {
+	creds, err := uploaders.GetAWSTestCredentials()
+	require.NoError(suite.T(), err, "please set aws environment variables.")
+	options := uploaders.GetAWSTestOptions(creds)
 	upload, err := newAWSUpload(suite.T(), options)
 	require.NoError(suite.T(), err, "error creating AWS client")
 	suite.testUpload(upload)
 }
 
-func (suite *uploadTestSuite) triggerUploads() map[string]string {
-	requestPath := fmt.Sprintf("/features/%s/outbox/messages/request", featureID)
-	requestedFiles := make(map[string]string)
+func (suite *fileUploadSuite) triggerUploads() map[string]string {
+	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, protocol.ActionRequest)
+	pathRequest := util.GetFeatureOutboxMessagePath(featureID, string(protocol.ActionRequest))
 
-	connMessages, err := util.NewDigitalTwinWSConnection(suite.initializer.Cfg)
-	require.NoError(suite.T(), err, "Failed to create websocket connection")
+	connMessages, err := util.NewDigitalTwinWSConnection(suite.Cfg)
+	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connMessages.Close()
 
-	suite.startListening(connMessages, typeMessages)
-	url := fmt.Sprintf("%s/inbox/messages/%s", suite.featureURL, operationTrigger)
-	_, err = util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, map[string]interface{}{
-		paramCorrelationID: "test",
-	})
-	require.NoError(suite.T(), err, "error sending digital twin request for trigger operation")
-	err = util.ProcessWSMessages(suite.initializer.Cfg, connMessages,
-		func(event *protocol.Envelope) (bool, error) {
-			if requestPath == event.Path {
-				request := &uploadRequest{}
-				err := parseEventValue(event.Value, request)
-				if err != nil {
-					suite.T().Logf("cannot convert %v to upload request, will ignore the event", event.Value)
-					return false, nil
-				}
-				if request.Options == nil {
-					suite.T().Logf("no upload request options found in payload(%v)", request)
-					return false, nil
-				}
-				if path, ok := request.Options["file.path"]; ok {
-					suite.T().Logf("file upload request: %s, with correlation id: %s", path, request.CorrelationID)
-					requestedFiles[request.CorrelationID] = path
-					return len(requestedFiles) == uploadFilesCount, nil
-				}
-				suite.T().Log("file.path key not found in upload request event options")
+	util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessages, fmt.Sprintf(eventFilterTemplate, pathRequest))
+	_, err = util.ExecuteOperation(suite.Cfg, suite.featureURL, operationTrigger, nil)
+	require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationTrigger)
+	requests := []interface{}{}
+	err = util.ProcessWSMessages(suite.Cfg, connMessages,
+		func(msg *protocol.Envelope) (bool, error) {
+			if msg.Topic.String() == topicRequest && msg.Path == pathRequest {
+				requests = append(requests, msg.Value)
+				return len(requests) == uploadFilesCount, nil
 			}
-			return len(requestedFiles) == uploadFilesCount, nil
+			return false, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
-
 	require.NoError(suite.T(), err, "error processing file upload requests")
-	require.Equal(suite.T(), uploadFilesCount, len(requestedFiles), "wrong file upload request events count")
+	require.Equal(suite.T(), uploadFilesCount, len(requests), "wrong file upload request events count")
+
+	requestedFiles := make(map[string]string)
+	for _, request := range requests {
+		uploadRequest := &uploadRequest{}
+		err := parseEventValue(request, uploadRequest)
+		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request, will ignore the event", request)
+		require.NotNilf(suite.T(), uploadRequest.Options, "no upload request options found in payload(%v)", uploadRequest)
+		path, ok := uploadRequest.Options[keyFilePath]
+		require.Truef(suite.T(), ok, "%s key not found in upload request event options", keyFilePath)
+		suite.T().Logf("file upload request: %s, with correlation id: %s", path, uploadRequest.CorrelationID)
+		requestedFiles[uploadRequest.CorrelationID] = path
+	}
 	suite.T().Logf("%v file upload requests, initiating uploads", len(requestedFiles))
 	return requestedFiles
 }
 
-func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map[string]string, files []string) {
-	connEvents, err := util.NewDigitalTwinWSConnection(suite.initializer.Cfg)
-	require.NoError(suite.T(), err, "Failed to create websocket connection")
+func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map[string]string, files []string) {
+	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
+	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
+
+	connEvents, err := util.NewDigitalTwinWSConnection(suite.Cfg)
+	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connEvents.Close()
 
-	suite.startListening(connEvents, typeEvents)
-
-	requestedFilesRev := make(map[string]string)
-	url := fmt.Sprintf("%s/inbox/messages/%s", suite.featureURL, operationStart)
-
+	util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEvents, fmt.Sprintf(eventFilterTemplate, pathLastUpload))
+	fileIDs := make(map[string]string)
 	for startID, path := range requestedFiles {
-		requestedFilesRev[path] = startID
-		_, err := util.SendDigitalTwinRequest(suite.initializer.Cfg, http.MethodPost, url, testUpload.requestUpload(startID, path))
-		require.NoError(suite.T(), err, "error sending digital twin request for trigger operation")
+		fileIDs[path] = startID
+		_, err := util.ExecuteOperation(suite.Cfg, suite.featureURL, operationStart, testUpload.requestUpload(startID, path))
+		require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationStart)
 	}
 
-	lastUploadPath := fmt.Sprintf("/features/%s/properties/%s", featureID, propertyLastUpload)
-	var lastUploadState string
-
-	err = util.ProcessWSMessages(suite.initializer.Cfg, connEvents,
-		func(event *protocol.Envelope) (bool, error) {
-			if lastUploadPath == event.Path {
-				status := &uploadStatus{}
-				err := parseEventValue(event.Value, status)
-				if err != nil {
-					suite.T().Logf("cannot convert %v to upload request, will ignore the event", event.Value)
-					return false, nil
-				}
-				suite.T().Logf("last upload event(state: %s, progress %v)", status.State, status.Progress)
-				lastUploadState = status.State
-				return isTerminal(status.State), nil
+	statuses := []interface{}{}
+	err = util.ProcessWSMessages(suite.Cfg, connEvents,
+		func(msg *protocol.Envelope) (bool, error) {
+			if msg.Topic.String() == topicModified && msg.Path == pathLastUpload {
+				statuses = append(statuses, msg.Value)
+				return isTerminal(msg.Value), nil
 			}
-			return false, nil
+			return false, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
-	require.NoError(suite.T(), err, "error upload status events")
-	require.Equal(suite.T(), client.StateSuccess, lastUploadState, "wrong final upload state")
+	require.NoError(suite.T(), err, "error processing upload status events")
+
+	lastUploadProgress := 0
+	for ind, status := range statuses {
+		uploadStatus := uploadStatus{}
+		err := parseEventValue(status, &uploadStatus)
+		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request, will ignore the event", status)
+		suite.T().Logf("upload status event(%v)", uploadStatus)
+		require.True(suite.T(), uploadStatus.Progress >= lastUploadProgress && uploadStatus.Progress <= 100,
+			"upload status progress should be non-decreasing and in range [0, 100]")
+		lastUploadProgress = uploadStatus.Progress
+		if ind < len(statuses)-1 {
+			require.Equal(suite.T(), client.StateUploading, uploadStatus.State, "wrong transitional upload state")
+		} else {
+			require.Equal(suite.T(), client.StateSuccess, uploadStatus.State, "wrong final upload state")
+		}
+	}
 	for _, filePath := range files {
-		startID, ok := requestedFilesRev[filePath]
+		startID, ok := fileIDs[filePath]
 		require.True(suite.T(), ok, fmt.Sprintf("no upload request event for %s", filePath))
 		content, err := testUpload.download(startID)
 		require.NoError(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
@@ -180,9 +188,9 @@ func (suite *uploadTestSuite) startUploads(testUpload upload, requestedFiles map
 	}
 }
 
-func (suite *uploadTestSuite) testUpload(testUpload upload) {
-	files, err := createTestFiles(suite.cfg.UploadDir)
-	defer deleteTestFiles(files)
+func (suite *fileUploadSuite) testUpload(testUpload upload) {
+	files, err := createTestFiles(suite.uploadCfg.UploadDir)
+	defer suite.deleteTestFiles(files)
 	require.NoError(suite.T(), err, "creating test files failed")
 
 	requestedFiles := suite.triggerUploads()
@@ -191,27 +199,28 @@ func (suite *uploadTestSuite) testUpload(testUpload upload) {
 	suite.startUploads(testUpload, requestedFiles, files)
 }
 
-func (suite *uploadTestSuite) checkUploadDir() {
-	files, err := os.ReadDir(suite.cfg.UploadDir)
+func (suite *fileUploadSuite) checkUploadDir() {
+	files, err := os.ReadDir(suite.uploadCfg.UploadDir)
 	if err != nil {
-		suite.T().Skipf("upload dir %s cannot be read - %v", suite.cfg.UploadDir, err)
+		suite.T().Fatalf("upload dir %s cannot be read - %v", suite.uploadCfg.UploadDir, err)
 	}
 	if len(files) > 0 {
-		suite.T().Skipf("upload dir %s must be empty", suite.cfg.UploadDir)
+		suite.T().Fatalf("upload dir %s must be empty", suite.uploadCfg.UploadDir)
 	}
 }
 
-func (suite *uploadTestSuite) startListening(conn *websocket.Conn, eventType string) {
-	err := websocket.Message.Send(conn, fmt.Sprintf("%s?filter=like(resource:path,'/features/%s/*')", eventType, featureID))
-	require.NoError(suite.T(), err, "error sending listener request")
-	err = util.WaitForWSMessage(suite.initializer.Cfg, conn, fmt.Sprintf("%s:ACK", eventType))
-	require.NoError(suite.T(), err, "acknowledgement not received in time")
-}
-
-func (suite *uploadTestSuite) compareContent(filePath string, received []byte) {
+func (suite *fileUploadSuite) compareContent(filePath string, received []byte) {
 	expected, err := ioutil.ReadFile(filePath)
 	require.NoError(suite.T(), err, fmt.Sprintf("cannot read file %s", filePath))
 	require.Equal(suite.T(), string(expected), string(received), fmt.Sprintf("uploaded content of file %s differs from original", filePath))
+}
+
+func (suite *fileUploadSuite) deleteTestFiles(files []string) {
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			suite.T().Logf("error deleting test file %s, please consider removing it manually(%v)", file, err)
+		}
+	}
 }
 
 func parseEventValue(props interface{}, result interface{}) error {
@@ -234,17 +243,15 @@ func createTestFiles(dir string) ([]string, error) {
 	return result, nil
 }
 
-func deleteTestFiles(files []string) {
-	for _, file := range files {
-		os.Remove(file)
-	}
-}
-
 func writeTestContent(filePath string, count int) error {
 	data := strings.Repeat("test", count)
 	return ioutil.WriteFile(filePath, []byte(data), fs.ModePerm)
 }
 
-func isTerminal(state string) bool {
-	return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
+func isTerminal(status interface{}) bool {
+	if props, ok := status.(map[string]interface{}); ok {
+		state := props["state"]
+		return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
+	}
+	return false
 }
