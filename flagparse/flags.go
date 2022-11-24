@@ -63,8 +63,15 @@ type ConfigFileMissing error
 
 //Validate file upload config
 func (cfg *UploadConfig) Validate() {
-	if cfg.Files == "" && cfg.Mode != client.ModeLax {
-		log.Fatalln("Files glob not specified. To permit unrestricted file upload set 'mode' property to 'lax'.")
+	if cfg.Files == "" {
+		if cfg.Mode != client.ModeLax {
+			log.Fatalln("Files glob not specified. To permit unrestricted file upload set 'mode' property to 'lax'.")
+		}
+	} else {
+		_, err := filepath.Glob(cfg.Files)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 	if (len(cfg.Cert) == 0) != (len(cfg.Key) == 0) {
 		log.Fatalln("Either both client MQTT certificate and key must be set or none of them.")
@@ -74,7 +81,6 @@ func (cfg *UploadConfig) Validate() {
 
 //ParseFlags parses the CLI flags and generates an upload file configuration
 func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
-	dumpFiles := flag.Bool("dumpFiles", false, "On startup dump the file paths matching the '-files' glob pattern to standard output.")
 
 	flagsConfig := &UploadConfig{}
 	printVersion := flag.Bool("version", false, "Prints current version and exits")
@@ -92,18 +98,6 @@ func ParseFlags(version string) (*UploadConfig, ConfigFileMissing) {
 	config := &UploadConfig{}
 	warn := LoadConfigFromFile(*configFile, config, ConfigNames, nil)
 	ApplyFlags(config, *flagsConfig)
-
-	if *dumpFiles {
-		if config.Files == "" {
-			fmt.Println("No glob filter provided!")
-		} else {
-			files, err := filepath.Glob(config.Files)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			fmt.Printf("Files matching glob filter '%s': %v\n", config.Files, files)
-		}
-	}
 
 	return config, warn
 }

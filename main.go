@@ -17,6 +17,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/eclipse-kanto/file-upload/client"
@@ -40,9 +41,15 @@ func main() {
 		logger.Warn(warn)
 	}
 
-	logger.Infof("files glob: '%s', mode: '%s'", config.Files, config.Mode)
 	logger.Infof("uploadable config: %+v", config.UploadableConfig)
 	logger.Infof("log config: %+v", config.LogConfig)
+	logger.Infof("files glob: '%s', mode: '%s'", config.Files, config.Mode)
+
+	if logger.IsDebugEnabled() && config.Files != "" {
+		//no err expected it's already validated
+		files, _ := filepath.Glob(config.Files)
+		logger.Debugf("Files matching glob filter '%s': %v\n", config.Files, files)
+	}
 
 	chstop := make(chan os.Signal, 1)
 	signal.Notify(chstop, syscall.SIGINT, syscall.SIGTERM)
