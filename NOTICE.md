@@ -44,7 +44,7 @@ eclipse/ditto-clients-golang (v0.0.0-20220225085802-cf3b306280d3)
 
 * License: Eclipse Public License v2.0
 * Project: https://github.com/eclipse/ditto-clients-golang
-* Source:  https://github.com/eclipse/ditto-clients-golang/tree/3e1c6149fedef558ee14270fec671abc77e36d7c
+* Source:  https://github.com/eclipse-ditto/ditto-clients-golang/tree/cf3b306280d3453473ae8dd65e78f978e2c838ea
 
 aws/aws-sdk-go-v2 (1.5.0)
 

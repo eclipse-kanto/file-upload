@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +51,6 @@ func (suite *fileUploadSuite) SetupSuite() {
 	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
 	suite.checkUploadDir()
 
-	fmt.Println(suite.ThingCfg)
 	suite.thingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.featureURL = util.GetFeatureURL(suite.thingURL, featureID)
 }
@@ -61,15 +59,15 @@ func (suite *fileUploadSuite) TearDownSuite() {
 	suite.TearDown()
 }
 
-func TestFileUploadHTTP(t *testing.T) {
+func TestHTTPFileUpload(t *testing.T) {
 	suite.Run(t, new(httpFileUploadSuite))
 }
 
-func TestFileUploadAzure(t *testing.T) {
+func TestAzureFileUpload(t *testing.T) {
 	suite.Run(t, new(azureFileUploadSuite))
 }
 
-func TestFileUploadAWS(t *testing.T) {
+func TestAWSFileUpload(t *testing.T) {
 	suite.Run(t, new(awsFileUploadSuite))
 }
 
@@ -83,7 +81,7 @@ func (suite *httpFileUploadSuite) TestFileUpload() {
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
 	creds, err := uploaders.GetAzureTestCredentials()
-	require.NoError(suite.T(), err, "please set azure environment variables.")
+	require.NoError(suite.T(), err, "please set azure environment variables")
 	options, err := uploaders.GetAzureTestOptions(creds)
 	require.NoError(suite.T(), err, "error getting azure test options")
 	upload := newAzureUpload(suite.T(), options)
@@ -92,7 +90,7 @@ func (suite *azureFileUploadSuite) TestFileUpload() {
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
 	creds, err := uploaders.GetAWSTestCredentials()
-	require.NoError(suite.T(), err, "please set aws environment variables.")
+	require.NoError(suite.T(), err, "please set aws environment variables")
 	options := uploaders.GetAWSTestOptions(creds)
 	upload, err := newAWSUpload(suite.T(), options)
 	require.NoError(suite.T(), err, "error creating AWS client")
@@ -100,33 +98,40 @@ func (suite *awsFileUploadSuite) TestFileUpload() {
 }
 
 func (suite *fileUploadSuite) triggerUploads() map[string]string {
-	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, protocol.ActionRequest)
-	pathRequest := util.GetFeatureOutboxMessagePath(featureID, string(protocol.ActionRequest))
+	topicTrigger := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, operationTrigger)
+	pathTrigger := getFeatureInboxMessagePath(featureID, operationTrigger)
+	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, actionRequest)
+	pathRequest := util.GetFeatureOutboxMessagePath(featureID, actionRequest)
 
 	connMessages, err := util.NewDigitalTwinWSConnection(suite.Cfg)
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connMessages.Close()
 
-	util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessages, fmt.Sprintf(eventFilterTemplate, pathRequest))
+	util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessages, fmt.Sprintf(eventFilterTemplate, featureID))
 	_, err = util.ExecuteOperation(suite.Cfg, suite.featureURL, operationTrigger, nil)
 	require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationTrigger)
 	requests := []interface{}{}
+	var triggerEvent bool
 	err = util.ProcessWSMessages(suite.Cfg, connMessages,
 		func(msg *protocol.Envelope) (bool, error) {
 			if msg.Topic.String() == topicRequest && msg.Path == pathRequest {
 				requests = append(requests, msg.Value)
 				return len(requests) == uploadFilesCount, nil
+			} else if msg.Topic.String() == topicTrigger && msg.Path == pathTrigger {
+				triggerEvent = true
+				return false, nil
 			}
-			return false, fmt.Errorf(msgUnexpectedValue, msg.Value)
+			return true, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
 	require.NoError(suite.T(), err, "error processing file upload requests")
+	require.True(suite.T(), triggerEvent, "event for trigger operation not received")
 	require.Equal(suite.T(), uploadFilesCount, len(requests), "wrong file upload request events count")
 
 	requestedFiles := make(map[string]string)
 	for _, request := range requests {
 		uploadRequest := &uploadRequest{}
 		err := parseEventValue(request, uploadRequest)
-		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request, will ignore the event", request)
+		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request", request)
 		require.NotNilf(suite.T(), uploadRequest.Options, "no upload request options found in payload(%v)", uploadRequest)
 		path, ok := uploadRequest.Options[keyFilePath]
 		require.Truef(suite.T(), ok, "%s key not found in upload request event options", keyFilePath)
@@ -145,7 +150,7 @@ func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connEvents.Close()
 
-	util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEvents, fmt.Sprintf(eventFilterTemplate, pathLastUpload))
+	util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEvents, fmt.Sprintf(eventFilterTemplate, featureID))
 	fileIDs := make(map[string]string)
 	for startID, path := range requestedFiles {
 		fileIDs[path] = startID
@@ -160,7 +165,7 @@ func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map
 				statuses = append(statuses, msg.Value)
 				return isTerminal(msg.Value), nil
 			}
-			return false, fmt.Errorf(msgUnexpectedValue, msg.Value)
+			return true, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
 	require.NoError(suite.T(), err, "error processing upload status events")
 
@@ -168,10 +173,11 @@ func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map
 	for ind, status := range statuses {
 		uploadStatus := uploadStatus{}
 		err := parseEventValue(status, &uploadStatus)
-		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request, will ignore the event", status)
+		require.NoErrorf(suite.T(), err, "cannot convert %v to upload status", status)
 		suite.T().Logf("upload status event(%v)", uploadStatus)
-		require.True(suite.T(), uploadStatus.Progress >= lastUploadProgress && uploadStatus.Progress <= 100,
-			"upload status progress should be non-decreasing and in range [0, 100]")
+		require.GreaterOrEqual(suite.T(), uploadStatus.Progress, lastUploadProgress,
+			"upload status progress should be non-decreasing")
+		require.LessOrEqual(suite.T(), uploadStatus.Progress, 100, "upload status progress should be less than 100%")
 		lastUploadProgress = uploadStatus.Progress
 		if ind < len(statuses)-1 {
 			require.Equal(suite.T(), client.StateUploading, uploadStatus.State, "wrong transitional upload state")
@@ -210,7 +216,7 @@ func (suite *fileUploadSuite) checkUploadDir() {
 }
 
 func (suite *fileUploadSuite) compareContent(filePath string, received []byte) {
-	expected, err := ioutil.ReadFile(filePath)
+	expected, err := os.ReadFile(filePath)
 	require.NoError(suite.T(), err, fmt.Sprintf("cannot read file %s", filePath))
 	require.Equal(suite.T(), string(expected), string(received), fmt.Sprintf("uploaded content of file %s differs from original", filePath))
 }
@@ -218,7 +224,7 @@ func (suite *fileUploadSuite) compareContent(filePath string, received []byte) {
 func (suite *fileUploadSuite) deleteTestFiles(files []string) {
 	for _, file := range files {
 		if err := os.Remove(file); err != nil {
-			suite.T().Logf("error deleting test file %s, please consider removing it manually(%v)", file, err)
+			suite.T().Logf("error deleting test file %s(%v)", file, err)
 		}
 	}
 }
@@ -245,7 +251,7 @@ func createTestFiles(dir string) ([]string, error) {
 
 func writeTestContent(filePath string, count int) error {
 	data := strings.Repeat("test", count)
-	return ioutil.WriteFile(filePath, []byte(data), fs.ModePerm)
+	return os.WriteFile(filePath, []byte(data), fs.ModePerm)
 }
 
 func isTerminal(status interface{}) bool {
@@ -254,4 +260,8 @@ func isTerminal(status interface{}) bool {
 		return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
 	}
 	return false
+}
+
+func getFeatureInboxMessagePath(featureID string, name string) string {
+	return fmt.Sprintf(featureInboxMessagePathTemplate, featureID, name)
 }

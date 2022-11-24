@@ -14,7 +14,7 @@ package integration
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -26,22 +26,22 @@ const (
 )
 
 type httpUpload struct {
-	url     string
-	uploads map[string]string
-	t       *testing.T
+	location string
+	uploads  map[string]string
+	t        *testing.T
 }
 
 func newHTTPUpload(t *testing.T, url string) *httpUpload {
 	return &httpUpload{
-		url:     url,
-		uploads: make(map[string]string),
-		t:       t,
+		location: fmt.Sprintf("%s/%%s", url),
+		uploads:  make(map[string]string),
+		t:        t,
 	}
 }
 
 func (upload *httpUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
-	url := fmt.Sprintf("%s/%s", upload.url, file)
+	url := fmt.Sprintf(upload.location, file)
 	upload.uploads[correlationID] = url
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
@@ -62,7 +62,7 @@ func (upload *httpUpload) download(correlationID string) ([]byte, error) {
 		return nil, err
 	}
 	defer response.Body.Close()
-	return ioutil.ReadAll(response.Body)
+	return io.ReadAll(response.Body)
 }
 
 func (upload *httpUpload) removeUploads() {
