@@ -13,8 +13,6 @@
 package integration
 
 import (
-	"time"
-
 	"github.com/eclipse-kanto/kanto/integration/util"
 	"github.com/stretchr/testify/suite"
 )
@@ -41,10 +39,8 @@ type awsFileUploadSuite struct {
 }
 
 type uploadTestConfig struct {
-	UploadDir            string        `env:"FUT_UPLOAD_DIR"`
-	HTTPServer           string        `env:"FUT_HTTP_SERVER"`
-	UploadFilesTimeout   time.Duration `env:"FUT_UPLOAD_FILES_TIMEOUT" envDefault:"20s"`
-	UploadRequestTimeout time.Duration `env:"FUT_UPLOAD_REQUEST_TIMEOUT" envDefault:"10s"`
+	UploadDir  string `env:"FUT_UPLOAD_DIR"`
+	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
 type upload interface {
