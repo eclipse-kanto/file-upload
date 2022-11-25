@@ -310,7 +310,7 @@ func (client *mockedClient) msg(t *testing.T, channel string, action string) map
 	select {
 	case env := <-ch:
 		assertEquals(t, namespace, env.Topic.Namespace)
-		assertEquals(t, deviceID, env.Topic.EntityID)
+		assertEquals(t, deviceID, env.Topic.EntityName)
 		assertEquals(t, action, string(env.Topic.Action))
 
 		// Validate its starting path.

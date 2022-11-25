@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -35,12 +33,12 @@ func TestAWSUploadWithChecksum(t *testing.T) {
 }
 
 func testAWSUpload(t *testing.T, useChecksum bool) {
-	creds := getTestCredentials(t)
+	options := RetrieveAWSTestOptions(t)
 
-	client, err := getAWSClient(creds)
+	client, err := GetAWSClient(options)
 	assertNoError(t, err)
 
-	u, err := NewAWSUploader(creds)
+	u, err := NewAWSUploader(options)
 	assertNoError(t, err)
 
 	f, err := os.Open(testFile)
@@ -50,12 +48,12 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 	err = u.UploadFile(f, useChecksum, nil)
 	assertNoError(t, err)
 
-	defer deleteAWSObject(client, testFile, creds[AWSBucket])
+	defer deleteAWSObject(client, testFile, options[AWSBucket])
 
 	downloader := manager.NewDownloader(client)
 	buf := manager.NewWriteAtBuffer([]byte{})
 	_, err = downloader.Download(context.TODO(), buf, &s3.GetObjectInput{
-		Bucket: aws.String(creds[AWSBucket]),
+		Bucket: aws.String(options[AWSBucket]),
 		Key:    aws.String(testFile),
 	})
 	assertNoError(t, err)
@@ -64,51 +62,16 @@ func testAWSUpload(t *testing.T, useChecksum bool) {
 }
 
 func TestNewAWSUploaderErrors(t *testing.T) {
-	creds := getTestCredentials(t)
+	options := RetrieveAWSTestOptions(t)
 
 	requiredParams := []string{AWSAccessKeyID, AWSBucket, AWSSecretAccessKey, AWSRegion}
 
 	for _, param := range requiredParams {
-		options := partialCopy(creds, param)
+		options := partialCopy(options, param)
 		u, err := NewAWSUploader(options)
 		assertFailsWith(t, u, err, fmt.Sprintf(missingParameterErrMsg, param))
 	}
 
-}
-
-func getTestCredentials(t *testing.T) map[string]string {
-	t.Helper()
-
-	mapping := map[string]string{
-		"AWS_BUCKET":            AWSBucket,
-		"AWS_ACCESS_KEY_ID":     AWSAccessKeyID,
-		"AWS_SECRET_ACCESS_KEY": AWSSecretAccessKey,
-		"AWS_REGION":            AWSRegion,
-	}
-
-	creds := map[string]string{}
-	for k, v := range mapping {
-		env := os.Getenv(k)
-		if env != "" {
-			creds[v] = env
-		} else {
-			t.Skipf("environment variable '%s' not set", k)
-		}
-	}
-
-	return creds
-}
-
-func getAWSClient(params map[string]string) (*s3.Client, error) {
-	cred := credentials.NewStaticCredentialsProvider(params[AWSAccessKeyID], params[AWSSecretAccessKey], "")
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithCredentialsProvider(cred), config.WithRegion(params[AWSRegion]))
-
-	if err == nil {
-		return s3.NewFromConfig(cfg), nil
-	}
-
-	return nil, err
 }
 
 func deleteAWSObject(client *s3.Client, key string, bucket string) {

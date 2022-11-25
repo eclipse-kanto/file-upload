@@ -31,8 +31,7 @@ func testAzureUpload(t *testing.T, emptyFiles bool) {
 	files := createTestFiles(t, 12, true, emptyFiles)
 	defer cleanFiles(files)
 
-	options, err := uploaders.GetAzureTestOptions(t)
-	assertNoError(t, err)
+	options := uploaders.RetrieveAzureTestOptions(t)
 
 	options[StorageProvider] = uploaders.StorageProviderAzure
 	uploads := NewUploads()
