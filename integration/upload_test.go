@@ -81,7 +81,7 @@ func (suite *httpFileUploadSuite) TestFileUpload() {
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
 	creds, err := uploaders.GetAzureTestCredentials()
-	require.NoError(suite.T(), err, "please set azure environment variables")
+	require.NoError(suite.T(), err, "please set Azure environment variables")
 	options, err := uploaders.GetAzureTestOptions(creds)
 	require.NoError(suite.T(), err, "error getting azure test options")
 	upload := newAzureUpload(suite.T(), options)
@@ -90,7 +90,7 @@ func (suite *azureFileUploadSuite) TestFileUpload() {
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
 	creds, err := uploaders.GetAWSTestCredentials()
-	require.NoError(suite.T(), err, "please set aws environment variables")
+	require.NoError(suite.T(), err, "please set AWS environment variables")
 	options := uploaders.GetAWSTestOptions(creds)
 	upload, err := newAWSUpload(suite.T(), options)
 	require.NoError(suite.T(), err, "error creating AWS client")
@@ -177,7 +177,8 @@ func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map
 		suite.T().Logf("upload status event(%v)", uploadStatus)
 		require.GreaterOrEqual(suite.T(), uploadStatus.Progress, lastUploadProgress,
 			"upload status progress should be non-decreasing")
-		require.LessOrEqual(suite.T(), uploadStatus.Progress, 100, "upload status progress should be less than 100%")
+		require.LessOrEqual(suite.T(), uploadStatus.Progress, 100,
+			"upload status progress should be less than or equal to 100%")
 		lastUploadProgress = uploadStatus.Progress
 		if ind < len(statuses)-1 {
 			require.Equal(suite.T(), client.StateUploading, uploadStatus.State, "wrong transitional upload state")
