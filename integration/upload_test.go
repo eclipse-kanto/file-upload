@@ -144,6 +144,7 @@ func (suite *fileUploadSuite) triggerUploads() map[string]string {
 
 func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map[string]string, files []string) {
 	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
+	topicCreated := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionCreated)
 	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
 
 	connEvents, err := util.NewDigitalTwinWSConnection(suite.Cfg)
@@ -161,7 +162,7 @@ func (suite *fileUploadSuite) startUploads(testUpload upload, requestedFiles map
 	statuses := []interface{}{}
 	err = util.ProcessWSMessages(suite.Cfg, connEvents,
 		func(msg *protocol.Envelope) (bool, error) {
-			if msg.Topic.String() == topicModified && msg.Path == pathLastUpload {
+			if (msg.Topic.String() == topicCreated || msg.Topic.String() == topicModified) && msg.Path == pathLastUpload {
 				statuses = append(statuses, msg.Value)
 				return isTerminal(msg.Value), nil
 			}
