@@ -64,8 +64,7 @@ const (
 
 	actionRequest = "request"
 
-	eventFilterTemplate             = "like(resource:path,'/features/%s/*')"
-	featureInboxMessagePathTemplate = "/features/%s/inbox/messages/%s"
+	eventFilterTemplate = "like(resource:path,'/features/%s/*')"
 
 	typeEvents   = "START-SEND-EVENTS"
 	typeMessages = "START-SEND-MESSAGES"

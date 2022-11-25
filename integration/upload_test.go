@@ -99,7 +99,7 @@ func (suite *awsFileUploadSuite) TestFileUpload() {
 
 func (suite *fileUploadSuite) triggerUploads() map[string]string {
 	topicTrigger := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, operationTrigger)
-	pathTrigger := getFeatureInboxMessagePath(featureID, operationTrigger)
+	pathTrigger := util.GetFeatureInboxMessagePath(featureID, operationTrigger)
 	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, actionRequest)
 	pathRequest := util.GetFeatureOutboxMessagePath(featureID, actionRequest)
 
@@ -260,8 +260,4 @@ func isTerminal(status interface{}) bool {
 		return state == client.StateSuccess || state == client.StateFailed || state == client.StateCanceled
 	}
 	return false
-}
-
-func getFeatureInboxMessagePath(featureID string, name string) string {
-	return fmt.Sprintf(featureInboxMessagePathTemplate, featureID, name)
 }
