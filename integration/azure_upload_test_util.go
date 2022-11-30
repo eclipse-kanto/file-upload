@@ -22,24 +22,35 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/eclipse-kanto/file-upload/client"
 	"github.com/eclipse-kanto/file-upload/uploaders"
+	"github.com/stretchr/testify/require"
 )
 
-type azureUpload struct {
+// AzureUpload is the structure for testing azure storage provider
+type AzureUpload struct {
 	options map[string]string
 	uploads map[string]string
 	t       *testing.T
 }
 
-func newAzureUpload(t *testing.T, options map[string]string) *azureUpload {
+func newAzureUpload(t *testing.T, options map[string]string) *AzureUpload {
 	options[client.StorageProvider] = uploaders.StorageProviderAzure
-	return &azureUpload{
+	return &AzureUpload{
 		options: options,
 		uploads: make(map[string]string),
 		t:       t,
 	}
 }
 
-func (upload *azureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+// CreateAzureUploadWithCredentials creates an AzureUpload, retrieving the needed credentials from environment variables
+func (suite *FileUploadSuite) CreateAzureUploadWithCredentials() *AzureUpload {
+	creds, err := uploaders.GetAzureTestCredentials()
+	require.NoError(suite.T(), err, "please set Azure environment variables")
+	options, err := uploaders.GetAzureTestOptions(creds)
+	require.NoError(suite.T(), err, "error getting azure test options")
+	return newAzureUpload(suite.T(), options)
+}
+
+func (upload *AzureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
 	upload.uploads[correlationID] = file
 	return map[string]interface{}{
@@ -48,12 +59,11 @@ func (upload *azureUpload) requestUpload(correlationID string, filePath string) 
 	}
 }
 
-func (upload *azureUpload) download(correlationID string) ([]byte, error) {
-	file, ok := upload.uploads[correlationID]
-	if !ok {
-		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+func (upload *AzureUpload) download(correlationID string) ([]byte, error) {
+	url, err := upload.GetDownloadURL(correlationID)
+	if err != nil {
+		return nil, err
 	}
-	url := upload.getURLToFile(file)
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 	if err != nil {
@@ -73,7 +83,16 @@ func (upload *azureUpload) download(correlationID string) ([]byte, error) {
 	return downloadedData.Bytes(), err
 }
 
-func (upload *azureUpload) removeUploads() {
+// GetDownloadURL retrieves the download url for a given correlation id
+func (upload *AzureUpload) GetDownloadURL(correlationID string) (string, error) {
+	file, ok := upload.uploads[correlationID]
+	if !ok {
+		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+	}
+	return upload.getURLToFile(file), nil
+}
+
+func (upload *AzureUpload) removeUploads() {
 	for _, file := range upload.uploads {
 		url := upload.getURLToFile(file)
 		clientOptions := azblob.ClientOptions{}
@@ -93,7 +112,7 @@ func (upload *azureUpload) removeUploads() {
 	}
 }
 
-func (upload *azureUpload) getURLToFile(file string) string {
+func (upload *AzureUpload) getURLToFile(file string) string {
 	return fmt.Sprint(upload.options[uploaders.AzureEndpoint], upload.options[uploaders.AzureContainerName],
 		"/", file, "?", upload.options[uploaders.AzureSAS])
 }

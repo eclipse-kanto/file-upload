@@ -22,30 +22,45 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/eclipse-kanto/file-upload/client"
 	"github.com/eclipse-kanto/file-upload/uploaders"
+	"github.com/stretchr/testify/require"
 )
 
-type awsUpload struct {
-	options map[string]string
-	uploads map[string]string
-	client  *s3.Client
-	t       *testing.T
+// AWSUpload is the structure for testing aws storage provider
+type AWSUpload struct {
+	options       map[string]string
+	uploads       map[string]string
+	client        *s3.Client
+	presignClient *s3.PresignClient
+	t             *testing.T
 }
 
-func newAWSUpload(t *testing.T, options map[string]string) (*awsUpload, error) {
+func newAWSUpload(t *testing.T, options map[string]string) (*AWSUpload, error) {
 	options[client.StorageProvider] = uploaders.StorageProviderAWS
 	client, err := uploaders.GetAWSClient(options)
 	if err != nil {
 		return nil, err
 	}
-	return &awsUpload{
-		options: options,
-		uploads: make(map[string]string),
-		client:  client,
-		t:       t,
+	presignClient := s3.NewPresignClient(client)
+	return &AWSUpload{
+		options:       options,
+		uploads:       make(map[string]string),
+		client:        client,
+		presignClient: presignClient,
+		t:             t,
 	}, nil
 }
 
-func (upload *awsUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+// CreateAWSUploadWithCredentials creates an AWSUpload, retrieving the needed credentials from environment variables
+func (suite *FileUploadSuite) CreateAWSUploadWithCredentials() *AWSUpload {
+	creds, err := uploaders.GetAWSTestCredentials()
+	require.NoError(suite.T(), err, "please set AWS environment variables")
+	options := uploaders.GetAWSTestOptions(creds)
+	upload, err := newAWSUpload(suite.T(), options)
+	require.NoError(suite.T(), err, "error creating AWS client")
+	return upload
+}
+
+func (upload *AWSUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	upload.uploads[correlationID] = filePath
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
@@ -53,7 +68,7 @@ func (upload *awsUpload) requestUpload(correlationID string, filePath string) ma
 	}
 }
 
-func (upload *awsUpload) download(correlationID string) ([]byte, error) {
+func (upload *AWSUpload) download(correlationID string) ([]byte, error) {
 	filePath, ok := upload.uploads[correlationID]
 	if !ok {
 		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
@@ -70,7 +85,23 @@ func (upload *awsUpload) download(correlationID string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (upload *awsUpload) removeUploads() {
+// GetDownloadURL retrieves the download url for a given correlation id
+func (upload *AWSUpload) GetDownloadURL(correlationID string) (string, error) {
+	filePath, ok := upload.uploads[correlationID]
+	if !ok {
+		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+	}
+	request, err := upload.presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(upload.options[uploaders.AWSBucket]),
+		Key:    aws.String(filePath),
+	})
+	if err != nil {
+		return "", err
+	}
+	return request.URL, nil
+}
+
+func (upload *AWSUpload) removeUploads() {
 	for _, filePath := range upload.uploads {
 		di := s3.DeleteObjectInput{
 			Bucket: aws.String(upload.options[uploaders.AWSBucket]),

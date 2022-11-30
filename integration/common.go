@@ -17,33 +17,39 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type fileUploadSuite struct {
+// FileUploadSuite is the main testing structure for this integration test
+type FileUploadSuite struct {
 	suite.Suite
 	util.SuiteInitializer
 
-	thingURL   string
-	featureURL string
-	uploadCfg  uploadTestConfig
+	ThingURL   string
+	FeatureURL string
+
+	uploadCfg UploadTestConfig
 }
 
 type httpFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
 type azureFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
 type awsFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
-type uploadTestConfig struct {
+// UploadTestConfig contains the configuration data for this integration test
+type UploadTestConfig struct {
 	UploadDir  string `env:"FUT_UPLOAD_DIR"`
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
-type upload interface {
+// Upload is the base structure for testing different storage providers(i.e azure, aws, generic)
+type Upload interface {
+	GetDownloadURL(correlationID string) (string, error)
+
 	requestUpload(correlationID string, filePath string) map[string]interface{}
 	download(correlationID string) ([]byte, error)
 	removeUploads()

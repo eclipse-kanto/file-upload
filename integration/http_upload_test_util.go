@@ -25,21 +25,23 @@ const (
 	paramHTTPSURL    = "https.url"
 )
 
-type httpUpload struct {
+// HTTPUpload is the structure for testing generic storage provider
+type HTTPUpload struct {
 	location string
 	uploads  map[string]string
 	t        *testing.T
 }
 
-func newHTTPUpload(t *testing.T, url string) *httpUpload {
-	return &httpUpload{
+// NewHTTPUpload creates a httpUpload, using provided url
+func NewHTTPUpload(t *testing.T, url string) *HTTPUpload {
+	return &HTTPUpload{
 		location: fmt.Sprintf("%s/%%s", url),
 		uploads:  make(map[string]string),
 		t:        t,
 	}
 }
 
-func (upload *httpUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+func (upload *HTTPUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
 	url := fmt.Sprintf(upload.location, file)
 	upload.uploads[correlationID] = url
@@ -52,10 +54,10 @@ func (upload *httpUpload) requestUpload(correlationID string, filePath string) m
 	}
 }
 
-func (upload *httpUpload) download(correlationID string) ([]byte, error) {
-	url, ok := upload.uploads[correlationID]
-	if !ok {
-		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+func (upload *HTTPUpload) download(correlationID string) ([]byte, error) {
+	url, err := upload.GetDownloadURL(correlationID)
+	if err != nil {
+		return nil, err
 	}
 	response, err := http.Get(url)
 	if err != nil {
@@ -65,7 +67,16 @@ func (upload *httpUpload) download(correlationID string) ([]byte, error) {
 	return io.ReadAll(response.Body)
 }
 
-func (upload *httpUpload) removeUploads() {
+// GetDownloadURL retrieves the download url for a given correlation id
+func (upload *HTTPUpload) GetDownloadURL(correlationID string) (string, error) {
+	url, ok := upload.uploads[correlationID]
+	if !ok {
+		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+	}
+	return url, nil
+}
+
+func (upload *HTTPUpload) removeUploads() {
 	client := &http.Client{}
 	for _, url := range upload.uploads {
 		req, err := http.NewRequest(http.MethodDelete, url, nil)
