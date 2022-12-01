@@ -31,7 +31,7 @@ func (suite *FileUploadSuite) SetupSuite() {
 	suite.uploadCfg = UploadTestConfig{}
 	require.NoError(suite.T(), env.Parse(&suite.uploadCfg, opts), "failed to process upload environment variables")
 	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
-	suite.CheckDirIsEmpty(suite.uploadCfg.UploadDir)
+	suite.AssertDirIsEmpty(suite.uploadCfg.UploadDir)
 
 	suite.ThingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.FeatureURL = util.GetFeatureURL(suite.ThingURL, featureID)
@@ -62,12 +62,12 @@ func (suite *httpFileUploadSuite) TestFileUpload() {
 }
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
-	upload := suite.CreateAzureUploadWithCredentials()
+	upload := suite.NewAzureUpload()
 	suite.testUpload(upload)
 }
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
-	upload := suite.CreateAWSUploadWithCredentials()
+	upload := suite.NewAWSUpload()
 	suite.testUpload(upload)
 }
 
@@ -91,9 +91,9 @@ func (suite *FileUploadSuite) testUpload(testUpload Upload) {
 	defer suite.RemoveFiles(suite.uploadCfg.UploadDir)
 	require.NoError(suite.T(), err, "creating test files failed")
 
-	requestedFiles := suite.TriggerUploads(featureID, operationTrigger, nil, uploadFilesCount)
+	requestedFiles := suite.CollectUploadRequests(featureID, operationTrigger, nil, uploadFilesCount)
 	defer testUpload.removeUploads()
 
-	suite.RunUploads(testUpload, featureID, requestedFiles)
+	suite.StartUploads(testUpload, featureID, requestedFiles)
 	suite.checkUploadedFiles(testUpload, requestedFiles, files)
 }

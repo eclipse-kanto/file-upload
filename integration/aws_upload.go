@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AWSUpload is the structure for testing aws storage provider
+// AWSUpload provides testing functionalities for aws storage provider
 type AWSUpload struct {
 	options       map[string]string
 	uploads       map[string]string
@@ -50,10 +50,10 @@ func newAWSUpload(t *testing.T, options map[string]string) (*AWSUpload, error) {
 	}, nil
 }
 
-// CreateAWSUploadWithCredentials creates an AWSUpload, retrieving the needed credentials from environment variables
-func (suite *FileUploadSuite) CreateAWSUploadWithCredentials() *AWSUpload {
+// NewAWSUpload creates an AWSUpload, retrieving the needed credentials from environment variables
+func (suite *FileUploadSuite) NewAWSUpload() *AWSUpload {
 	creds, err := uploaders.GetAWSTestCredentials()
-	require.NoError(suite.T(), err, "please set AWS environment variables")
+	require.NoError(suite.T(), err, "AWS environment variables not set")
 	options := uploaders.GetAWSTestOptions(creds)
 	upload, err := newAWSUpload(suite.T(), options)
 	require.NoError(suite.T(), err, "error creating AWS client")
@@ -85,8 +85,8 @@ func (upload *AWSUpload) download(correlationID string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// GetDownloadURL retrieves the download url for a given correlation id
-func (upload *AWSUpload) GetDownloadURL(correlationID string) (string, error) {
+// DownloadURL retrieves the download url for a given correlation id
+func (upload *AWSUpload) DownloadURL(correlationID string) (string, error) {
 	filePath, ok := upload.uploads[correlationID]
 	if !ok {
 		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)

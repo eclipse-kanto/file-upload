@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AzureUpload is the structure for testing azure storage provider
+// AzureUpload provides testing functionalities for azure storage provider
 type AzureUpload struct {
 	options map[string]string
 	uploads map[string]string
@@ -41,10 +41,10 @@ func newAzureUpload(t *testing.T, options map[string]string) *AzureUpload {
 	}
 }
 
-// CreateAzureUploadWithCredentials creates an AzureUpload, retrieving the needed credentials from environment variables
-func (suite *FileUploadSuite) CreateAzureUploadWithCredentials() *AzureUpload {
+// NewAzureUpload creates an AzureUpload, retrieving the needed credentials from environment variables
+func (suite *FileUploadSuite) NewAzureUpload() *AzureUpload {
 	creds, err := uploaders.GetAzureTestCredentials()
-	require.NoError(suite.T(), err, "please set Azure environment variables")
+	require.NoError(suite.T(), err, "Azure environment variables not set")
 	options, err := uploaders.GetAzureTestOptions(creds)
 	require.NoError(suite.T(), err, "error getting azure test options")
 	return newAzureUpload(suite.T(), options)
@@ -60,7 +60,7 @@ func (upload *AzureUpload) requestUpload(correlationID string, filePath string) 
 }
 
 func (upload *AzureUpload) download(correlationID string) ([]byte, error) {
-	url, err := upload.GetDownloadURL(correlationID)
+	url, err := upload.DownloadURL(correlationID)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,8 @@ func (upload *AzureUpload) download(correlationID string) ([]byte, error) {
 	return downloadedData.Bytes(), err
 }
 
-// GetDownloadURL retrieves the download url for a given correlation id
-func (upload *AzureUpload) GetDownloadURL(correlationID string) (string, error) {
+// DownloadURL retrieves the download url for a given correlation id
+func (upload *AzureUpload) DownloadURL(correlationID string) (string, error) {
 	file, ok := upload.uploads[correlationID]
 	if !ok {
 		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)

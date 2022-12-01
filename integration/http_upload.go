@@ -25,7 +25,7 @@ const (
 	paramHTTPSURL    = "https.url"
 )
 
-// HTTPUpload is the structure for testing generic storage provider
+// HTTPUpload provides testing functionalities for generic storage provider
 type HTTPUpload struct {
 	location string
 	uploads  map[string]string
@@ -55,7 +55,7 @@ func (upload *HTTPUpload) requestUpload(correlationID string, filePath string) m
 }
 
 func (upload *HTTPUpload) download(correlationID string) ([]byte, error) {
-	url, err := upload.GetDownloadURL(correlationID)
+	url, err := upload.DownloadURL(correlationID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (upload *HTTPUpload) download(correlationID string) ([]byte, error) {
 	return io.ReadAll(response.Body)
 }
 
-// GetDownloadURL retrieves the download url for a given correlation id
-func (upload *HTTPUpload) GetDownloadURL(correlationID string) (string, error) {
+// DownloadURL retrieves the download url for a given correlation id
+func (upload *HTTPUpload) DownloadURL(correlationID string) (string, error) {
 	url, ok := upload.uploads[correlationID]
 	if !ok {
 		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)

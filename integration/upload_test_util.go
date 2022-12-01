@@ -15,6 +15,10 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/eclipse-kanto/file-upload/client"
 	"github.com/eclipse-kanto/kanto/integration/util"
@@ -42,8 +46,8 @@ func ParseEventValue(props interface{}, result interface{}) error {
 	return json.Unmarshal(jsonValue, result)
 }
 
-// TriggerUploads executes an operation, which triggers file upload(s) and collects the upload requests
-func (suite *FileUploadSuite) TriggerUploads(featureID string, operation string, params interface{}, expectedFileCount int) map[string]string {
+// CollectUploadRequests executes an operation, which triggers file upload(s) and collects the upload requests
+func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation string, params interface{}, expectedFileCount int) map[string]string {
 	topicOperation := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, protocol.TopicAction(operation))
 	pathOperation := util.GetFeatureInboxMessagePath(featureID, operation)
 	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, actionRequest)
@@ -90,8 +94,8 @@ func (suite *FileUploadSuite) TriggerUploads(featureID string, operation string,
 	return requestedFiles
 }
 
-// RunUploads starts the uploads for all given file upload requests
-func (suite *FileUploadSuite) RunUploads(TestUpload Upload, featureID string, requestedFiles map[string]string) {
+// StartUploads starts the uploads for all given file upload requests
+func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, requestedFiles map[string]string) {
 	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
 	topicCreated := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionCreated)
 	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
@@ -154,4 +158,57 @@ func IsTerminal(status interface{}, terminalStates ...string) bool {
 func (suite *FileUploadSuite) unsubscribe(cfg *util.TestConfiguration, ws *websocket.Conn, messageType string) {
 	err := util.SubscribeForWSMessages(cfg, ws, messageType, "")
 	require.NoErrorf(suite.T(), err, "Error while unsubscribing for %s", messageType)
+}
+
+// File/Directory test util functionalities start here
+
+// AssertDirIsEmpty checks if a directory is empty
+func (suite *FileUploadSuite) AssertDirIsEmpty(dir string) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		suite.T().Fatalf("directory %s cannot be read - %v", dir, err)
+	}
+	if len(files) > 0 {
+		suite.T().Fatalf("directory %s must be empty", dir)
+	}
+}
+
+// CreateTestFiles creates a given number of files in a given directory, filling the with some test bytes
+func CreateTestFiles(dir string, fileCount int) ([]string, error) {
+	var result []string
+	for i := 1; i <= fileCount; i++ {
+		filePath := filepath.Join(dir, fmt.Sprintf(uploadFilesPattern, i))
+		result = append(result, filePath)
+		if err := writeTestContent(filePath, 10*i); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func writeTestContent(filePath string, count int) error {
+	data := strings.Repeat("test", count)
+	return os.WriteFile(filePath, []byte(data), fs.ModePerm)
+}
+
+// RemoveFiles removes all files from a given directory
+func (suite *FileUploadSuite) RemoveFiles(dir string) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		suite.T().Logf("error reading files from directory %s(%v)", dir, err)
+		return
+	}
+	for _, file := range files {
+		path := filepath.Join(dir, file.Name())
+		if err := os.Remove(path); err != nil {
+			suite.T().Logf("error removing file %s(%v)", path, err)
+		}
+	}
+}
+
+// CompareContent compares the content of a file with the actual bytes
+func (suite *FileUploadSuite) CompareContent(filePath string, actual []byte) {
+	expected, err := os.ReadFile(filePath)
+	require.NoErrorf(suite.T(), err, "cannot read file %s", filePath)
+	require.Equalf(suite.T(), string(expected), string(actual), "actual content of file %s differs from original", filePath)
 }
