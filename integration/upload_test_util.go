@@ -53,8 +53,8 @@ func (suite *FileUploadSuite) TriggerUploads(featureID string, operation string,
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connMessages.Close()
 
-	util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessages, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer suite.unsubscribe(suite.Cfg, connMessages, typeMessages)
+	util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessagesStart, fmt.Sprintf(eventFilterTemplate, featureID))
+	defer suite.unsubscribe(suite.Cfg, connMessages, typeMessagesStop)
 	_, err = util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operation, params)
 	require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operation)
 	requests := []interface{}{}
@@ -99,8 +99,8 @@ func (suite *FileUploadSuite) RunUploads(TestUpload Upload, featureID string, re
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connEvents.Close()
 
-	util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEvents, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer suite.unsubscribe(suite.Cfg, connEvents, typeEvents)
+	util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEventsStart, fmt.Sprintf(eventFilterTemplate, featureID))
+	defer suite.unsubscribe(suite.Cfg, connEvents, typeEventsStop)
 	for startID, path := range requestedFiles {
 		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, TestUpload.requestUpload(startID, path))
 		require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationStart)
