@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.7.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/caarlos0/env/v6 v6.10.1
-	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221125134142-56b32f6b3e24
+	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221202134037-d46d274df5c4
 	github.com/eclipse/ditto-clients-golang v0.0.0-20220225085802-cf3b306280d3
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/google/uuid v1.3.0
@@ -43,5 +43,5 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9
+	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
 )

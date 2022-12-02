@@ -72,11 +72,6 @@ const (
 
 	eventFilterTemplate = "like(resource:path,'/features/%s/*')"
 
-	typeEventsStart   = "START-SEND-EVENTS"
-	typeMessagesStart = "START-SEND-MESSAGES"
-	typeEventsStop    = "STOP-SEND-EVENTS"
-	typeMessagesStop  = "STOP-SEND-MESSAGES"
-
 	msgNoUploadCorrelationID           = "no upload with correlation id: %s"
 	msgErrorExecutingOperation         = "error executing operation %s"
 	msgUnexpectedValue                 = "unexpected value: %v"

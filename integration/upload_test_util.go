@@ -13,7 +13,6 @@
 package integration
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -24,7 +23,6 @@ import (
 	"github.com/eclipse-kanto/kanto/integration/util"
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/websocket"
 )
 
 type uploadRequest struct {
@@ -35,15 +33,6 @@ type uploadRequest struct {
 type uploadStatus struct {
 	State    string `json:"state"`
 	Progress int    `json:"progress"`
-}
-
-// ParseEventValue marshals an object(i.e map) and unmarshals it into a specific structure
-func ParseEventValue(props interface{}, result interface{}) error {
-	jsonValue, err := json.Marshal(props)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(jsonValue, result)
 }
 
 // CollectUploadRequests executes an operation, which triggers file upload(s) and collects the upload requests
@@ -57,8 +46,8 @@ func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation 
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connMessages.Close()
 
-	err = util.SubscribeForWSMessages(suite.Cfg, connMessages, typeMessagesStart, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer suite.unsubscribe(suite.Cfg, connMessages, typeMessagesStop)
+	err = util.SubscribeForWSMessages(suite.Cfg, connMessages, util.StartSendMessages, fmt.Sprintf(eventFilterTemplate, featureID))
+	defer util.UnsubscribeFromWSMessages(suite.Cfg, connMessages, util.StopSendMessages)
 	require.NoError(suite.T(), err, "error subscribing for WS ditto messages")
 	_, err = util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operation, params)
 	require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operation)
@@ -82,7 +71,7 @@ func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation 
 	requestedFiles := make(map[string]string)
 	for _, request := range requests {
 		uploadRequest := &uploadRequest{}
-		err := ParseEventValue(request, uploadRequest)
+		err := util.Convert(request, uploadRequest)
 		require.NoErrorf(suite.T(), err, "cannot convert %v to upload request", request)
 		require.NotNilf(suite.T(), uploadRequest.Options, "no upload request options found in payload(%v)", uploadRequest)
 		path, ok := uploadRequest.Options[keyFilePath]
@@ -104,8 +93,8 @@ func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, 
 	require.NoError(suite.T(), err, msgFailedCreateWebsocketConnection)
 	defer connEvents.Close()
 
-	err = util.SubscribeForWSMessages(suite.Cfg, connEvents, typeEventsStart, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer suite.unsubscribe(suite.Cfg, connEvents, typeEventsStop)
+	err = util.SubscribeForWSMessages(suite.Cfg, connEvents, util.StartSendEvents, fmt.Sprintf(eventFilterTemplate, featureID))
+	defer util.UnsubscribeFromWSMessages(suite.Cfg, connEvents, util.StopSendEvents)
 	require.NoError(suite.T(), err, "error subscribing for WS ditto events")
 	for startID, path := range requestedFiles {
 		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, TestUpload.requestUpload(startID, path))
@@ -126,7 +115,7 @@ func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, 
 	lastUploadProgress := 0
 	for ind, status := range statuses {
 		uploadStatus := uploadStatus{}
-		err := ParseEventValue(status, &uploadStatus)
+		err := util.Convert(status, &uploadStatus)
 		require.NoErrorf(suite.T(), err, "cannot convert %v to upload status", status)
 		suite.T().Logf("upload status event(%v)", uploadStatus)
 		require.GreaterOrEqual(suite.T(), uploadStatus.Progress, lastUploadProgress,
@@ -153,11 +142,6 @@ func IsTerminal(status interface{}, terminalStates ...string) bool {
 		}
 	}
 	return false
-}
-
-func (suite *FileUploadSuite) unsubscribe(cfg *util.TestConfiguration, ws *websocket.Conn, messageType string) {
-	err := util.SubscribeForWSMessages(cfg, ws, messageType, "")
-	require.NoErrorf(suite.T(), err, "Error while unsubscribing for %s", messageType)
 }
 
 // File/Directory test util functionalities start here
