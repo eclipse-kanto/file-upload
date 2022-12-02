@@ -35,8 +35,8 @@ type uploadStatus struct {
 	Progress int    `json:"progress"`
 }
 
-// CollectUploadRequests executes an operation, which triggers file upload(s) and collects the upload requests
-func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation string, params interface{}, expectedFileCount int) map[string]string {
+// UploadRequests executes an operation, which triggers file upload(s) and collects the upload requests
+func (suite *FileUploadSuite) UploadRequests(featureID string, operation string, params interface{}, expectedFileCount int) map[string]string {
 	topicOperation := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, protocol.TopicAction(operation))
 	pathOperation := util.GetFeatureInboxMessagePath(featureID, operation)
 	topicRequest := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, actionRequest)
@@ -47,8 +47,9 @@ func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation 
 	defer connMessages.Close()
 
 	err = util.SubscribeForWSMessages(suite.Cfg, connMessages, util.StartSendMessages, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer util.UnsubscribeFromWSMessages(suite.Cfg, connMessages, util.StopSendMessages)
 	require.NoError(suite.T(), err, "error subscribing for WS ditto messages")
+	defer util.UnsubscribeFromWSMessages(suite.Cfg, connMessages, util.StopSendMessages)
+
 	_, err = util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operation, params)
 	require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operation)
 	requests := []interface{}{}
@@ -84,7 +85,7 @@ func (suite *FileUploadSuite) CollectUploadRequests(featureID string, operation 
 }
 
 // StartUploads starts the uploads for all given file upload requests
-func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, requestedFiles map[string]string) {
+func (suite *FileUploadSuite) StartUploads(featureID string, upload Upload, requestedFiles map[string]string) {
 	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
 	topicCreated := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionCreated)
 	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
@@ -94,10 +95,11 @@ func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, 
 	defer connEvents.Close()
 
 	err = util.SubscribeForWSMessages(suite.Cfg, connEvents, util.StartSendEvents, fmt.Sprintf(eventFilterTemplate, featureID))
-	defer util.UnsubscribeFromWSMessages(suite.Cfg, connEvents, util.StopSendEvents)
 	require.NoError(suite.T(), err, "error subscribing for WS ditto events")
+	defer util.UnsubscribeFromWSMessages(suite.Cfg, connEvents, util.StopSendEvents)
+
 	for startID, path := range requestedFiles {
-		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, TestUpload.requestUpload(startID, path))
+		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, upload.requestUpload(startID, path))
 		require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationStart)
 	}
 
@@ -106,7 +108,7 @@ func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, 
 		func(msg *protocol.Envelope) (bool, error) {
 			if (msg.Topic.String() == topicCreated || msg.Topic.String() == topicModified) && msg.Path == pathLastUpload {
 				statuses = append(statuses, msg.Value)
-				return IsTerminal(msg.Value, client.StateSuccess, client.StateFailed, client.StateCanceled), nil
+				return Contains(msg.Value, client.StateSuccess, client.StateFailed, client.StateCanceled), nil
 			}
 			return true, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
@@ -131,8 +133,8 @@ func (suite *FileUploadSuite) StartUploads(TestUpload Upload, featureID string, 
 	}
 }
 
-// IsTerminal checks if a status "state" property is contained in the specified states
-func IsTerminal(status interface{}, terminalStates ...string) bool {
+// Contains checks if a status "state" property is contained in the specified states
+func Contains(status interface{}, terminalStates ...string) bool {
 	if props, ok := status.(map[string]interface{}); ok {
 		state := props["state"]
 		for _, terminal := range terminalStates {
@@ -146,8 +148,8 @@ func IsTerminal(status interface{}, terminalStates ...string) bool {
 
 // File/Directory test util functionalities start here
 
-// AssertDirIsEmpty checks if a directory is empty
-func (suite *FileUploadSuite) AssertDirIsEmpty(dir string) {
+// AssertEmptyDir checks if a directory is empty
+func (suite *FileUploadSuite) AssertEmptyDir(dir string) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		suite.T().Fatalf("directory %s cannot be read - %v", dir, err)
@@ -157,7 +159,7 @@ func (suite *FileUploadSuite) AssertDirIsEmpty(dir string) {
 	}
 }
 
-// CreateTestFiles creates a given number of files in a given directory, filling the with some test bytes
+// CreateTestFiles creates a given number of files in a given directory, filling them with some test bytes
 func CreateTestFiles(dir string, fileCount int) ([]string, error) {
 	var result []string
 	for i := 1; i <= fileCount; i++ {
@@ -175,8 +177,8 @@ func writeTestContent(filePath string, count int) error {
 	return os.WriteFile(filePath, []byte(data), fs.ModePerm)
 }
 
-// RemoveFiles removes all files from a given directory
-func (suite *FileUploadSuite) RemoveFiles(dir string) {
+// RemoveFilesSilent removes all files from a given directory
+func (suite *FileUploadSuite) RemoveFilesSilent(dir string) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		suite.T().Logf("error reading files from directory %s(%v)", dir, err)
@@ -190,8 +192,8 @@ func (suite *FileUploadSuite) RemoveFiles(dir string) {
 	}
 }
 
-// CompareContent compares the content of a file with the actual bytes
-func (suite *FileUploadSuite) CompareContent(filePath string, actual []byte) {
+// AssertContent asserts that the content of a file matches with the actual bytes
+func (suite *FileUploadSuite) AssertContent(filePath string, actual []byte) {
 	expected, err := os.ReadFile(filePath)
 	require.NoErrorf(suite.T(), err, "cannot read file %s", filePath)
 	require.Equalf(suite.T(), string(expected), string(actual), "actual content of file %s differs from original", filePath)

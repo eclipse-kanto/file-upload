@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AWSUpload provides testing functionalities for aws storage provider
+// AWSUpload provides testing functionalities for AWS storage provider
 type AWSUpload struct {
 	options       map[string]string
 	uploads       map[string]string
@@ -50,13 +50,14 @@ func newAWSUpload(t *testing.T, options map[string]string) (*AWSUpload, error) {
 	}, nil
 }
 
-// NewAWSUpload creates an AWSUpload, retrieving the needed credentials from environment variables
-func (suite *FileUploadSuite) NewAWSUpload() *AWSUpload {
+// NewAWSUpload creates an implementation of Upload interface for AWS storage provider,
+// retrieving the needed credentials from environment variables
+func NewAWSUpload(t *testing.T) *AWSUpload {
 	creds, err := uploaders.GetAWSTestCredentials()
-	require.NoError(suite.T(), err, "AWS environment variables not set")
+	require.NoError(t, err, "AWS credentials not set")
 	options := uploaders.GetAWSTestOptions(creds)
-	upload, err := newAWSUpload(suite.T(), options)
-	require.NoError(suite.T(), err, "error creating AWS client")
+	upload, err := newAWSUpload(t, options)
+	require.NoError(t, err, "error creating AWS client")
 	return upload
 }
 

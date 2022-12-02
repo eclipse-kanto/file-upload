@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AzureUpload provides testing functionalities for azure storage provider
+// AzureUpload provides testing functionalities for Azure storage provider
 type AzureUpload struct {
 	options map[string]string
 	uploads map[string]string
@@ -41,13 +41,14 @@ func newAzureUpload(t *testing.T, options map[string]string) *AzureUpload {
 	}
 }
 
-// NewAzureUpload creates an AzureUpload, retrieving the needed credentials from environment variables
-func (suite *FileUploadSuite) NewAzureUpload() *AzureUpload {
+// NewAzureUpload creates an implementation of Upload interface for Azure storage provider,
+// retrieving the needed credentials from environment variables
+func NewAzureUpload(t *testing.T) *AzureUpload {
 	creds, err := uploaders.GetAzureTestCredentials()
-	require.NoError(suite.T(), err, "Azure environment variables not set")
+	require.NoError(t, err, "Azure credentials not set")
 	options, err := uploaders.GetAzureTestOptions(creds)
-	require.NoError(suite.T(), err, "error getting azure test options")
-	return newAzureUpload(suite.T(), options)
+	require.NoError(t, err, "error getting azure test options")
+	return newAzureUpload(t, options)
 }
 
 func (upload *AzureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {

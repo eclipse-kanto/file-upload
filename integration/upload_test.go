@@ -31,7 +31,7 @@ func (suite *FileUploadSuite) SetupSuite() {
 	suite.uploadCfg = UploadTestConfig{}
 	require.NoError(suite.T(), env.Parse(&suite.uploadCfg, opts), "failed to process upload environment variables")
 	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
-	suite.AssertDirIsEmpty(suite.uploadCfg.UploadDir)
+	suite.AssertEmptyDir(suite.uploadCfg.UploadDir)
 
 	suite.ThingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.FeatureURL = util.GetFeatureURL(suite.ThingURL, featureID)
@@ -62,16 +62,16 @@ func (suite *httpFileUploadSuite) TestFileUpload() {
 }
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
-	upload := suite.NewAzureUpload()
+	upload := NewAzureUpload(suite.T())
 	suite.testUpload(upload)
 }
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
-	upload := suite.NewAWSUpload()
+	upload := NewAWSUpload(suite.T())
 	suite.testUpload(upload)
 }
 
-func (suite *FileUploadSuite) checkUploadedFiles(testUpload Upload, requestedFiles map[string]string, files []string) {
+func (suite *FileUploadSuite) checkUploadedFiles(upload Upload, requestedFiles map[string]string, files []string) {
 	fileIDs := make(map[string]string)
 	for startID, path := range requestedFiles {
 		fileIDs[path] = startID
@@ -80,20 +80,20 @@ func (suite *FileUploadSuite) checkUploadedFiles(testUpload Upload, requestedFil
 	for _, filePath := range files {
 		startID, ok := fileIDs[filePath]
 		require.True(suite.T(), ok, fmt.Sprintf("no upload request event for %s", filePath))
-		content, err := testUpload.download(startID)
+		content, err := upload.download(startID)
 		require.NoError(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
-		suite.CompareContent(filePath, content)
+		suite.AssertContent(filePath, content)
 	}
 }
 
-func (suite *FileUploadSuite) testUpload(testUpload Upload) {
+func (suite *FileUploadSuite) testUpload(upload Upload) {
 	files, err := CreateTestFiles(suite.uploadCfg.UploadDir, uploadFilesCount)
-	defer suite.RemoveFiles(suite.uploadCfg.UploadDir)
+	defer suite.RemoveFilesSilent(suite.uploadCfg.UploadDir)
 	require.NoError(suite.T(), err, "creating test files failed")
 
-	requestedFiles := suite.CollectUploadRequests(featureID, operationTrigger, nil, uploadFilesCount)
-	defer testUpload.removeUploads()
+	requestedFiles := suite.UploadRequests(featureID, operationTrigger, nil, uploadFilesCount)
+	defer upload.removeUploads()
 
-	suite.StartUploads(testUpload, featureID, requestedFiles)
-	suite.checkUploadedFiles(testUpload, requestedFiles, files)
+	suite.StartUploads(featureID, upload, requestedFiles)
+	suite.checkUploadedFiles(upload, requestedFiles, files)
 }

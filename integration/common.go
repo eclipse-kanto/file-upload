@@ -40,13 +40,13 @@ type awsFileUploadSuite struct {
 	FileUploadSuite
 }
 
-// UploadTestConfig contains the configuration data for this integration test
+// UploadTestConfig contains the test configuration data, such as upload directory and http server URL
 type UploadTestConfig struct {
 	UploadDir  string `env:"FUT_UPLOAD_DIR"`
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
-// Upload contains file upload, download and remove logic for different storage providers(i.e azure, aws, generic)
+// Upload contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
 type Upload interface {
 	DownloadURL(correlationID string) (string, error)
 

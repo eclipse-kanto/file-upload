@@ -32,7 +32,7 @@ type HTTPUpload struct {
 	t        *testing.T
 }
 
-// NewHTTPUpload creates a httpUpload, using provided url
+// NewHTTPUpload creates an implementation of Upload interface for generic storage provider
 func NewHTTPUpload(t *testing.T, url string) *HTTPUpload {
 	return &HTTPUpload{
 		location: fmt.Sprintf("%s/%%s", url),
