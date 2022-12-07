@@ -25,43 +25,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AzureUpload provides testing functionalities for Azure storage provider
-type AzureUpload struct {
+// azureStorageProvider provides testing functionalities for the Azure storage provider
+type azureStorageProvider struct {
 	options map[string]string
 	uploads map[string]string
 	t       *testing.T
 }
 
-func newAzureUpload(t *testing.T, options map[string]string) *AzureUpload {
+// NewAzureStorageProvider creates an implementation of the StorageProvider interface for the Azure storage provider,
+// retrieves the needed credentials from environment variables
+func NewAzureStorageProvider(t *testing.T) StorageProvider {
+	creds, err := uploaders.GetAzureTestCredentials()
+	require.NoError(t, err, "Azure credentials not set")
+	options, err := uploaders.GetAzureTestOptions(creds)
+	require.NoError(t, err, "error getting azure test options")
 	options[client.StorageProvider] = uploaders.StorageProviderAzure
-	return &AzureUpload{
+	return azureStorageProvider{
 		options: options,
 		uploads: make(map[string]string),
 		t:       t,
 	}
 }
 
-// NewAzureUpload creates an implementation of Upload interface for Azure storage provider,
-// retrieving the needed credentials from environment variables
-func NewAzureUpload(t *testing.T) *AzureUpload {
-	creds, err := uploaders.GetAzureTestCredentials()
-	require.NoError(t, err, "Azure credentials not set")
-	options, err := uploaders.GetAzureTestOptions(creds)
-	require.NoError(t, err, "error getting azure test options")
-	return newAzureUpload(t, options)
-}
-
-func (upload *AzureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+func (provider azureStorageProvider) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
-	upload.uploads[correlationID] = file
+	provider.uploads[correlationID] = file
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
-		paramOptions:       upload.options,
+		paramOptions:       provider.options,
 	}
 }
 
-func (upload *AzureUpload) download(correlationID string) ([]byte, error) {
-	url, err := upload.DownloadURL(correlationID)
+func (provider azureStorageProvider) download(correlationID string) ([]byte, error) {
+	url, err := provider.downloadURL(correlationID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,36 +80,35 @@ func (upload *AzureUpload) download(correlationID string) ([]byte, error) {
 	return downloadedData.Bytes(), err
 }
 
-// DownloadURL retrieves the download url for a given correlation id
-func (upload *AzureUpload) DownloadURL(correlationID string) (string, error) {
-	file, ok := upload.uploads[correlationID]
+func (provider azureStorageProvider) downloadURL(correlationID string) (string, error) {
+	file, ok := provider.uploads[correlationID]
 	if !ok {
 		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
 	}
-	return upload.getURLToFile(file), nil
+	return provider.getURLToFile(file), nil
 }
 
-func (upload *AzureUpload) removeUploads() {
-	for _, file := range upload.uploads {
-		url := upload.getURLToFile(file)
+func (provider azureStorageProvider) removeUploads() {
+	for _, file := range provider.uploads {
+		url := provider.getURLToFile(file)
 		clientOptions := azblob.ClientOptions{}
 		blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 		if err != nil {
-			upload.t.Logf("error creating block blob client to azure storage url - %s", url)
+			provider.t.Logf("error creating block blob client to azure storage url - %s", url)
 			continue
 		}
 		var deleteResponse azblob.BlobDeleteResponse
 		optons := azblob.DeleteBlobOptions{}
 		deleteResponse, err = blockBlobClient.Delete(context.Background(), &optons)
 		if err != nil {
-			upload.t.Logf("deleting blob %s from azure storage finished with error - %v", file, err)
+			provider.t.Logf("deleting blob %s from azure storage finished with error - %v", file, err)
 		} else {
-			upload.t.Logf("deleting blob %s from azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
+			provider.t.Logf("deleting blob %s from azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
 		}
 	}
 }
 
-func (upload *AzureUpload) getURLToFile(file string) string {
-	return fmt.Sprint(upload.options[uploaders.AzureEndpoint], upload.options[uploaders.AzureContainerName],
-		"/", file, "?", upload.options[uploaders.AzureSAS])
+func (provider azureStorageProvider) getURLToFile(file string) string {
+	return fmt.Sprint(provider.options[uploaders.AzureEndpoint], provider.options[uploaders.AzureContainerName],
+		"/", file, "?", provider.options[uploaders.AzureSAS])
 }

@@ -57,21 +57,21 @@ func (suite *httpFileUploadSuite) TestFileUpload() {
 	if len(suite.uploadCfg.HTTPServer) == 0 {
 		suite.T().Fatal("http server must be set")
 	}
-	upload := NewHTTPUpload(suite.T(), suite.uploadCfg.HTTPServer)
-	suite.testUpload(upload)
+	provider := NewHTTPStorageProvider(suite.T(), suite.uploadCfg.HTTPServer)
+	suite.testUpload(provider)
 }
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
-	upload := NewAzureUpload(suite.T())
-	suite.testUpload(upload)
+	provider := NewAzureStorageProvider(suite.T())
+	suite.testUpload(provider)
 }
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
-	upload := NewAWSUpload(suite.T())
-	suite.testUpload(upload)
+	provider := NewAWSStorageProvider(suite.T())
+	suite.testUpload(provider)
 }
 
-func (suite *FileUploadSuite) checkUploadedFiles(upload Upload, requestedFiles map[string]string, files []string) {
+func (suite *FileUploadSuite) checkUploadedFiles(upload StorageProvider, requestedFiles map[string]string, files []string) {
 	fileIDs := make(map[string]string)
 	for startID, path := range requestedFiles {
 		fileIDs[path] = startID
@@ -86,14 +86,14 @@ func (suite *FileUploadSuite) checkUploadedFiles(upload Upload, requestedFiles m
 	}
 }
 
-func (suite *FileUploadSuite) testUpload(upload Upload) {
+func (suite *FileUploadSuite) testUpload(provider StorageProvider) {
 	files, err := CreateTestFiles(suite.uploadCfg.UploadDir, uploadFilesCount)
-	defer suite.RemoveFilesSilent(suite.uploadCfg.UploadDir)
+	defer suite.RemoveFilesSilently(suite.uploadCfg.UploadDir)
 	require.NoError(suite.T(), err, "creating test files failed")
 
 	requestedFiles := suite.UploadRequests(featureID, operationTrigger, nil, uploadFilesCount)
-	defer upload.removeUploads()
+	defer provider.removeUploads()
 
-	suite.StartUploads(featureID, upload, requestedFiles)
-	suite.checkUploadedFiles(upload, requestedFiles, files)
+	suite.StartUploads(featureID, provider, requestedFiles)
+	suite.checkUploadedFiles(provider, requestedFiles, files)
 }

@@ -85,7 +85,7 @@ func (suite *FileUploadSuite) UploadRequests(featureID string, operation string,
 }
 
 // StartUploads starts the uploads for all given file upload requests
-func (suite *FileUploadSuite) StartUploads(featureID string, upload Upload, requestedFiles map[string]string) {
+func (suite *FileUploadSuite) StartUploads(featureID string, provider StorageProvider, requestedFiles map[string]string) {
 	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
 	topicCreated := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionCreated)
 	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
@@ -99,7 +99,7 @@ func (suite *FileUploadSuite) StartUploads(featureID string, upload Upload, requ
 	defer util.UnsubscribeFromWSMessages(suite.Cfg, connEvents, util.StopSendEvents)
 
 	for startID, path := range requestedFiles {
-		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, upload.requestUpload(startID, path))
+		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, provider.requestUpload(startID, path))
 		require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationStart)
 	}
 
@@ -108,7 +108,7 @@ func (suite *FileUploadSuite) StartUploads(featureID string, upload Upload, requ
 		func(msg *protocol.Envelope) (bool, error) {
 			if (msg.Topic.String() == topicCreated || msg.Topic.String() == topicModified) && msg.Path == pathLastUpload {
 				statuses = append(statuses, msg.Value)
-				return Contains(msg.Value, client.StateSuccess, client.StateFailed, client.StateCanceled), nil
+				return ContainsState(msg.Value, client.StateSuccess, client.StateFailed, client.StateCanceled), nil
 			}
 			return true, fmt.Errorf(msgUnexpectedValue, msg.Value)
 		})
@@ -133,17 +133,22 @@ func (suite *FileUploadSuite) StartUploads(featureID string, upload Upload, requ
 	}
 }
 
-// Contains checks if a status "state" property is contained in the specified states
-func Contains(status interface{}, terminalStates ...string) bool {
+// ContainsState checks if a status "state" property is contained in the specified states
+func ContainsState(status interface{}, states ...string) bool {
 	if props, ok := status.(map[string]interface{}); ok {
-		state := props["state"]
-		for _, terminal := range terminalStates {
-			if state == terminal {
+		actualState := props["state"]
+		for _, state := range states {
+			if actualState == state {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// DownloadURL retrieves the download url for a given correlation id
+func GetDownloadURL(provider StorageProvider, correlationID string) (string, error) {
+	return provider.downloadURL(correlationID)
 }
 
 // File/Directory test util functionalities start here
@@ -177,8 +182,8 @@ func writeTestContent(filePath string, count int) error {
 	return os.WriteFile(filePath, []byte(data), fs.ModePerm)
 }
 
-// RemoveFilesSilent removes all files from a given directory
-func (suite *FileUploadSuite) RemoveFilesSilent(dir string) {
+// RemoveFilesSilently removes all files from a given directory
+func (suite *FileUploadSuite) RemoveFilesSilently(dir string) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		suite.T().Logf("error reading files from directory %s(%v)", dir, err)

@@ -46,9 +46,9 @@ type UploadTestConfig struct {
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
-// Upload contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
-type Upload interface {
-	DownloadURL(correlationID string) (string, error)
+// StorageProvider contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
+type StorageProvider interface {
+	downloadURL(correlationID string) (string, error)
 
 	requestUpload(correlationID string, filePath string) map[string]interface{}
 	download(correlationID string) ([]byte, error)
