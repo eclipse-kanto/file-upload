@@ -146,7 +146,7 @@ func ContainsState(status interface{}, states ...string) bool {
 	return false
 }
 
-// DownloadURL retrieves the download url for a given correlation id
+// GetDownloadURL retrieves the download url for a given storage provider and correlation id
 func GetDownloadURL(provider StorageProvider, correlationID string) (string, error) {
 	return provider.downloadURL(correlationID)
 }
