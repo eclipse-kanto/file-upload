@@ -25,7 +25,8 @@ type FileUploadSuite struct {
 	ThingURL   string
 	FeatureURL string
 
-	uploadCfg UploadTestConfig
+	uploadCfg uploadTestConfig
+	provider  storageProvider
 }
 
 type httpFileUploadSuite struct {
@@ -40,20 +41,26 @@ type awsFileUploadSuite struct {
 	FileUploadSuite
 }
 
-// UploadTestConfig contains the test configuration data, such as upload directory and http server URL
-type UploadTestConfig struct {
+// uploadTestConfig contains the test configuration data, such as upload directory and http server URL
+type uploadTestConfig struct {
 	UploadDir  string `env:"FUT_UPLOAD_DIR"`
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
-// StorageProvider contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
-type StorageProvider interface {
-	downloadURL(correlationID string) (string, error)
-
+// storageProvider contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
+type storageProvider interface {
 	requestUpload(correlationID string, filePath string) map[string]interface{}
+	downloadURL(correlationID string) (string, error)
 	download(correlationID string) ([]byte, error)
 	removeUploads()
 }
+
+// Constants for different storage providers
+const (
+	AzureStorageProvider   = "Azure"
+	AWSStorageProvider     = "AWS"
+	GenericStorageProvider = "generic"
+)
 
 const (
 	featureID = "AutoUploadable"

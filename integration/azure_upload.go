@@ -32,9 +32,9 @@ type azureStorageProvider struct {
 	t       *testing.T
 }
 
-// NewAzureStorageProvider creates an implementation of the StorageProvider interface for the Azure storage provider,
+// newAzureStorageProvider creates an implementation of the storageProvider interface for the Azure storage provider,
 // retrieves the needed credentials from environment variables
-func NewAzureStorageProvider(t *testing.T) StorageProvider {
+func newAzureStorageProvider(t *testing.T) storageProvider {
 	creds, err := uploaders.GetAzureTestCredentials()
 	require.NoError(t, err, "Azure credentials not set")
 	options, err := uploaders.GetAzureTestOptions(creds)
@@ -85,12 +85,12 @@ func (provider azureStorageProvider) downloadURL(correlationID string) (string, 
 	if !ok {
 		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
 	}
-	return provider.getURLToFile(file), nil
+	return provider.urlToFile(file), nil
 }
 
 func (provider azureStorageProvider) removeUploads() {
 	for _, file := range provider.uploads {
-		url := provider.getURLToFile(file)
+		url := provider.urlToFile(file)
 		clientOptions := azblob.ClientOptions{}
 		blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 		if err != nil {
@@ -108,7 +108,7 @@ func (provider azureStorageProvider) removeUploads() {
 	}
 }
 
-func (provider azureStorageProvider) getURLToFile(file string) string {
+func (provider azureStorageProvider) urlToFile(file string) string {
 	return fmt.Sprint(provider.options[uploaders.AzureEndpoint], provider.options[uploaders.AzureContainerName],
 		"/", file, "?", provider.options[uploaders.AzureSAS])
 }

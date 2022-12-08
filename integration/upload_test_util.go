@@ -35,6 +35,28 @@ type uploadStatus struct {
 	Progress int    `json:"progress"`
 }
 
+// SetupStorageProvider initializes the specified storage provider
+func (suite *FileUploadSuite) SetupStorageProvider(providerName string) {
+	switch providerName {
+	case AWSStorageProvider:
+		suite.provider = newAWSStorageProvider(suite.T())
+	case AzureStorageProvider:
+		suite.provider = newAzureStorageProvider(suite.T())
+	case GenericStorageProvider:
+		if len(suite.uploadCfg.HTTPServer) == 0 {
+			suite.T().Fatal("http server must be set")
+		}
+		suite.provider = newHTTPStorageProvider(suite.T(), suite.uploadCfg.UploadDir)
+	default:
+		suite.T().Fatalf("storage provider %s not defined", providerName)
+	}
+}
+
+// TearDownStorageProvider cleans up the uploaded files for the storage provider
+func (suite *FileUploadSuite) TearDownStorageProvider() {
+	suite.provider.removeUploads()
+}
+
 // UploadRequests executes an operation, which triggers file upload(s) and collects the upload requests
 func (suite *FileUploadSuite) UploadRequests(featureID string, operation string, params interface{}, expectedFileCount int) map[string]string {
 	topicOperation := util.GetLiveMessageTopic(suite.ThingCfg.DeviceID, protocol.TopicAction(operation))
@@ -85,7 +107,7 @@ func (suite *FileUploadSuite) UploadRequests(featureID string, operation string,
 }
 
 // StartUploads starts the uploads for all given file upload requests
-func (suite *FileUploadSuite) StartUploads(featureID string, provider StorageProvider, requestedFiles map[string]string) {
+func (suite *FileUploadSuite) StartUploads(featureID string, requestedFiles map[string]string) {
 	pathLastUpload := util.GetFeaturePropertyPath(featureID, propertyLastUpload)
 	topicCreated := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionCreated)
 	topicModified := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
@@ -99,7 +121,7 @@ func (suite *FileUploadSuite) StartUploads(featureID string, provider StoragePro
 	defer util.UnsubscribeFromWSMessages(suite.Cfg, connEvents, util.StopSendEvents)
 
 	for startID, path := range requestedFiles {
-		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, provider.requestUpload(startID, path))
+		_, err := util.ExecuteOperation(suite.Cfg, suite.FeatureURL, operationStart, suite.provider.requestUpload(startID, path))
 		require.NoErrorf(suite.T(), err, msgErrorExecutingOperation, operationStart)
 	}
 
@@ -146,9 +168,9 @@ func ContainsState(status interface{}, states ...string) bool {
 	return false
 }
 
-// GetDownloadURL retrieves the download url for a given storage provider and correlation id
-func GetDownloadURL(provider StorageProvider, correlationID string) (string, error) {
-	return provider.downloadURL(correlationID)
+// DownloadURL retrieves the download url for a given correlation id
+func (suite *FileUploadSuite) DownloadURL(correlationID string) (string, error) {
+	return suite.provider.downloadURL(correlationID)
 }
 
 // File/Directory test util functionalities start here

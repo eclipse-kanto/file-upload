@@ -32,8 +32,8 @@ type httpStorageProvider struct {
 	t        *testing.T
 }
 
-// NewHTTPStorageProvider creates an implementation of the StorageProvider interface for a generic HTTP storage provider
-func NewHTTPStorageProvider(t *testing.T, url string) StorageProvider {
+// newHTTPStorageProvider creates an implementation of the storageProvider interface for a generic HTTP storage provider
+func newHTTPStorageProvider(t *testing.T, url string) storageProvider {
 	return httpStorageProvider{
 		location: fmt.Sprintf("%s/%%s", url),
 		uploads:  make(map[string]string),

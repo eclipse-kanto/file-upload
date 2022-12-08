@@ -28,7 +28,7 @@ func (suite *FileUploadSuite) SetupSuite() {
 	suite.Setup(suite.T())
 
 	opts := env.Options{RequiredIfNoDef: false}
-	suite.uploadCfg = UploadTestConfig{}
+	suite.uploadCfg = uploadTestConfig{}
 	require.NoError(suite.T(), env.Parse(&suite.uploadCfg, opts), "failed to process upload environment variables")
 	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
 	suite.AssertEmptyDir(suite.uploadCfg.UploadDir)
@@ -54,24 +54,24 @@ func TestAWSFileUpload(t *testing.T) {
 }
 
 func (suite *httpFileUploadSuite) TestFileUpload() {
-	if len(suite.uploadCfg.HTTPServer) == 0 {
-		suite.T().Fatal("http server must be set")
-	}
-	provider := NewHTTPStorageProvider(suite.T(), suite.uploadCfg.HTTPServer)
-	suite.testUpload(provider)
+	suite.SetupStorageProvider(GenericStorageProvider)
+	defer suite.TearDownStorageProvider()
+	suite.testUpload()
 }
 
 func (suite *azureFileUploadSuite) TestFileUpload() {
-	provider := NewAzureStorageProvider(suite.T())
-	suite.testUpload(provider)
+	suite.SetupStorageProvider(AzureStorageProvider)
+	defer suite.TearDownStorageProvider()
+	suite.testUpload()
 }
 
 func (suite *awsFileUploadSuite) TestFileUpload() {
-	provider := NewAWSStorageProvider(suite.T())
-	suite.testUpload(provider)
+	suite.SetupStorageProvider(AWSStorageProvider)
+	defer suite.TearDownStorageProvider()
+	suite.testUpload()
 }
 
-func (suite *FileUploadSuite) checkUploadedFiles(upload StorageProvider, requestedFiles map[string]string, files []string) {
+func (suite *FileUploadSuite) checkUploadedFiles(requestedFiles map[string]string, files []string) {
 	fileIDs := make(map[string]string)
 	for startID, path := range requestedFiles {
 		fileIDs[path] = startID
@@ -80,20 +80,19 @@ func (suite *FileUploadSuite) checkUploadedFiles(upload StorageProvider, request
 	for _, filePath := range files {
 		startID, ok := fileIDs[filePath]
 		require.True(suite.T(), ok, fmt.Sprintf("no upload request event for %s", filePath))
-		content, err := upload.download(startID)
+		content, err := suite.provider.download(startID)
 		require.NoError(suite.T(), err, fmt.Sprintf("file %s not uploaded", filePath))
 		suite.AssertContent(filePath, content)
 	}
 }
 
-func (suite *FileUploadSuite) testUpload(provider StorageProvider) {
+func (suite *FileUploadSuite) testUpload() {
 	files, err := CreateTestFiles(suite.uploadCfg.UploadDir, uploadFilesCount)
 	defer suite.RemoveFilesSilently(suite.uploadCfg.UploadDir)
 	require.NoError(suite.T(), err, "creating test files failed")
 
 	requestedFiles := suite.UploadRequests(featureID, operationTrigger, nil, uploadFilesCount)
-	defer provider.removeUploads()
 
-	suite.StartUploads(featureID, provider, requestedFiles)
-	suite.checkUploadedFiles(provider, requestedFiles, files)
+	suite.StartUploads(featureID, requestedFiles)
+	suite.checkUploadedFiles(requestedFiles, files)
 }

@@ -34,9 +34,9 @@ type awsStorageProvider struct {
 	t             *testing.T
 }
 
-// NewAWSStorageProvider creates an implementation of the StorageProvide interface for the AWS storage provider,
+// newAWSStorageProvider creates an implementation of the storageProvider interface for the AWS storage provider,
 // retrieves the needed credentials from environment variables
-func NewAWSStorageProvider(t *testing.T) StorageProvider {
+func newAWSStorageProvider(t *testing.T) storageProvider {
 	creds, err := uploaders.GetAWSTestCredentials()
 	require.NoError(t, err, "AWS credentials not set")
 	options := uploaders.GetAWSTestOptions(creds)
