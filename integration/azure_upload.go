@@ -22,38 +22,45 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/eclipse-kanto/file-upload/client"
 	"github.com/eclipse-kanto/file-upload/uploaders"
+	"github.com/stretchr/testify/require"
 )
 
-type azureUpload struct {
+// azureStorageProvider provides testing functionalities for the Azure storage provider
+type azureStorageProvider struct {
 	options map[string]string
 	uploads map[string]string
 	t       *testing.T
 }
 
-func newAzureUpload(t *testing.T, options map[string]string) *azureUpload {
+// newAzureStorageProvider creates an implementation of the storageProvider interface for the Azure storage provider,
+// retrieves the needed credentials from environment variables
+func newAzureStorageProvider(t *testing.T) storageProvider {
+	creds, err := uploaders.GetAzureTestCredentials()
+	require.NoError(t, err, "Azure credentials not set")
+	options, err := uploaders.GetAzureTestOptions(creds)
+	require.NoError(t, err, "error getting Azure test options")
 	options[client.StorageProvider] = uploaders.StorageProviderAzure
-	return &azureUpload{
+	return azureStorageProvider{
 		options: options,
 		uploads: make(map[string]string),
 		t:       t,
 	}
 }
 
-func (upload *azureUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+func (provider azureStorageProvider) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
-	upload.uploads[correlationID] = file
+	provider.uploads[correlationID] = file
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
-		paramOptions:       upload.options,
+		paramOptions:       provider.options,
 	}
 }
 
-func (upload *azureUpload) download(correlationID string) ([]byte, error) {
-	file, ok := upload.uploads[correlationID]
-	if !ok {
-		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+func (provider azureStorageProvider) download(correlationID string) ([]byte, error) {
+	url, err := provider.downloadURL(correlationID)
+	if err != nil {
+		return nil, err
 	}
-	url := upload.getURLToFile(file)
 	clientOptions := azblob.ClientOptions{}
 	blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 	if err != nil {
@@ -73,27 +80,35 @@ func (upload *azureUpload) download(correlationID string) ([]byte, error) {
 	return downloadedData.Bytes(), err
 }
 
-func (upload *azureUpload) removeUploads() {
-	for _, file := range upload.uploads {
-		url := upload.getURLToFile(file)
+func (provider azureStorageProvider) downloadURL(correlationID string) (string, error) {
+	file, ok := provider.uploads[correlationID]
+	if !ok {
+		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+	}
+	return provider.urlToFile(file), nil
+}
+
+func (provider azureStorageProvider) removeUploads() {
+	for _, file := range provider.uploads {
+		url := provider.urlToFile(file)
 		clientOptions := azblob.ClientOptions{}
 		blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 		if err != nil {
-			upload.t.Logf("error creating block blob client to azure storage url - %s", url)
+			provider.t.Logf("error creating block blob client to Azure storage url - %s", url)
 			continue
 		}
 		var deleteResponse azblob.BlobDeleteResponse
 		optons := azblob.DeleteBlobOptions{}
 		deleteResponse, err = blockBlobClient.Delete(context.Background(), &optons)
 		if err != nil {
-			upload.t.Logf("deleting blob %s from azure storage finished with error - %v", file, err)
+			provider.t.Logf("deleting blob %s from Azure storage finished with error - %v", file, err)
 		} else {
-			upload.t.Logf("deleting blob %s from azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
+			provider.t.Logf("deleting blob %s from Azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
 		}
 	}
 }
 
-func (upload *azureUpload) getURLToFile(file string) string {
-	return fmt.Sprint(upload.options[uploaders.AzureEndpoint], upload.options[uploaders.AzureContainerName],
-		"/", file, "?", upload.options[uploaders.AzureSAS])
+func (provider azureStorageProvider) urlToFile(file string) string {
+	return fmt.Sprint(provider.options[uploaders.AzureEndpoint], provider.options[uploaders.AzureContainerName],
+		"/", file, "?", provider.options[uploaders.AzureSAS])
 }

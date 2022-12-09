@@ -25,24 +25,26 @@ const (
 	paramHTTPSURL    = "https.url"
 )
 
-type httpUpload struct {
+// httpStorageProvider provides testing functionalities for a generic HTTP storage provider
+type httpStorageProvider struct {
 	location string
 	uploads  map[string]string
 	t        *testing.T
 }
 
-func newHTTPUpload(t *testing.T, url string) *httpUpload {
-	return &httpUpload{
+// newHTTPStorageProvider creates an implementation of the storageProvider interface for a generic HTTP storage provider
+func newHTTPStorageProvider(t *testing.T, url string) storageProvider {
+	return httpStorageProvider{
 		location: fmt.Sprintf("%s/%%s", url),
 		uploads:  make(map[string]string),
 		t:        t,
 	}
 }
 
-func (upload *httpUpload) requestUpload(correlationID string, filePath string) map[string]interface{} {
+func (provider httpStorageProvider) requestUpload(correlationID string, filePath string) map[string]interface{} {
 	file := filepath.Base(filePath)
-	url := fmt.Sprintf(upload.location, file)
-	upload.uploads[correlationID] = url
+	url := fmt.Sprintf(provider.location, file)
+	provider.uploads[correlationID] = url
 	return map[string]interface{}{
 		paramCorrelationID: correlationID,
 		paramOptions: map[string]string{
@@ -52,10 +54,10 @@ func (upload *httpUpload) requestUpload(correlationID string, filePath string) m
 	}
 }
 
-func (upload *httpUpload) download(correlationID string) ([]byte, error) {
-	url, ok := upload.uploads[correlationID]
-	if !ok {
-		return nil, fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+func (provider httpStorageProvider) download(correlationID string) ([]byte, error) {
+	url, err := provider.downloadURL(correlationID)
+	if err != nil {
+		return nil, err
 	}
 	response, err := http.Get(url)
 	if err != nil {
@@ -65,19 +67,27 @@ func (upload *httpUpload) download(correlationID string) ([]byte, error) {
 	return io.ReadAll(response.Body)
 }
 
-func (upload *httpUpload) removeUploads() {
+func (provider httpStorageProvider) downloadURL(correlationID string) (string, error) {
+	url, ok := provider.uploads[correlationID]
+	if !ok {
+		return "", fmt.Errorf(msgNoUploadCorrelationID, correlationID)
+	}
+	return url, nil
+}
+
+func (provider httpStorageProvider) removeUploads() {
 	client := &http.Client{}
-	for _, url := range upload.uploads {
+	for _, url := range provider.uploads {
 		req, err := http.NewRequest(http.MethodDelete, url, nil)
 		if err != nil {
-			upload.t.Logf("error creating delete request to %s - %v", url, err)
+			provider.t.Logf("error creating delete request to %s - %v", url, err)
 			continue
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			upload.t.Logf("error sending delete request to %s - %v", url, err)
+			provider.t.Logf("error sending delete request to %s - %v", url, err)
 		} else {
-			upload.t.Logf("delete response code %d from %s", resp.StatusCode, url)
+			provider.t.Logf("delete response code %d from %s", resp.StatusCode, url)
 			defer resp.Body.Close()
 		}
 	}

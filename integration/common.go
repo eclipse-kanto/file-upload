@@ -17,37 +17,53 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type fileUploadSuite struct {
+// FileUploadSuite tests the file upload functionalities, using a provided configuration
+type FileUploadSuite struct {
 	suite.Suite
 	util.SuiteInitializer
 
-	thingURL   string
-	featureURL string
-	uploadCfg  uploadTestConfig
+	ThingURL   string
+	FeatureURL string
+
+	uploadCfg uploadTestConfig
+	provider  storageProvider
 }
 
 type httpFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
 type azureFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
 type awsFileUploadSuite struct {
-	fileUploadSuite
+	FileUploadSuite
 }
 
+// uploadTestConfig contains the test configuration data, such as upload directory and http server URL
 type uploadTestConfig struct {
 	UploadDir  string `env:"FUT_UPLOAD_DIR"`
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
 
-type upload interface {
+// storageProvider contains file upload, download and remove logic for different storage providers(i.e Azure, AWS, generic)
+type storageProvider interface {
 	requestUpload(correlationID string, filePath string) map[string]interface{}
+	downloadURL(correlationID string) (string, error)
 	download(correlationID string) ([]byte, error)
 	removeUploads()
 }
+
+// Provider represents a storage provider type
+type Provider int
+
+// Constants for different storage providers
+const (
+	AzureStorageProvider Provider = iota
+	AWSStorageProvider
+	GenericStorageProvider
+)
 
 const (
 	featureID = "AutoUploadable"
@@ -65,9 +81,6 @@ const (
 	actionRequest = "request"
 
 	eventFilterTemplate = "like(resource:path,'/features/%s/*')"
-
-	typeEvents   = "START-SEND-EVENTS"
-	typeMessages = "START-SEND-MESSAGES"
 
 	msgNoUploadCorrelationID           = "no upload with correlation id: %s"
 	msgErrorExecutingOperation         = "error executing operation %s"
