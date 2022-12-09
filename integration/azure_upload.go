@@ -38,7 +38,7 @@ func newAzureStorageProvider(t *testing.T) storageProvider {
 	creds, err := uploaders.GetAzureTestCredentials()
 	require.NoError(t, err, "Azure credentials not set")
 	options, err := uploaders.GetAzureTestOptions(creds)
-	require.NoError(t, err, "error getting azure test options")
+	require.NoError(t, err, "error getting Azure test options")
 	options[client.StorageProvider] = uploaders.StorageProviderAzure
 	return azureStorageProvider{
 		options: options,
@@ -94,16 +94,16 @@ func (provider azureStorageProvider) removeUploads() {
 		clientOptions := azblob.ClientOptions{}
 		blockBlobClient, err := azblob.NewBlockBlobClientWithNoCredential(url, &clientOptions)
 		if err != nil {
-			provider.t.Logf("error creating block blob client to azure storage url - %s", url)
+			provider.t.Logf("error creating block blob client to Azure storage url - %s", url)
 			continue
 		}
 		var deleteResponse azblob.BlobDeleteResponse
 		optons := azblob.DeleteBlobOptions{}
 		deleteResponse, err = blockBlobClient.Delete(context.Background(), &optons)
 		if err != nil {
-			provider.t.Logf("deleting blob %s from azure storage finished with error - %v", file, err)
+			provider.t.Logf("deleting blob %s from Azure storage finished with error - %v", file, err)
 		} else {
-			provider.t.Logf("deleting blob %s from azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
+			provider.t.Logf("deleting blob %s from Azure storage finished with response status - %s", file, deleteResponse.RawResponse.Status)
 		}
 	}
 }

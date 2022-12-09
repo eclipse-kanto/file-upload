@@ -36,8 +36,8 @@ type uploadStatus struct {
 }
 
 // SetupStorageProvider initializes the specified storage provider
-func (suite *FileUploadSuite) SetupStorageProvider(providerName string) {
-	switch providerName {
+func (suite *FileUploadSuite) SetupStorageProvider(provider Provider) {
+	switch provider {
 	case AWSStorageProvider:
 		suite.provider = newAWSStorageProvider(suite.T())
 	case AzureStorageProvider:
@@ -48,7 +48,7 @@ func (suite *FileUploadSuite) SetupStorageProvider(providerName string) {
 		}
 		suite.provider = newHTTPStorageProvider(suite.T(), suite.uploadCfg.UploadDir)
 	default:
-		suite.T().Fatalf("storage provider %s not defined", providerName)
+		suite.T().Fatalf("storage provider %d not defined", provider)
 	}
 }
 

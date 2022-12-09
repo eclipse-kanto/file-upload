@@ -101,9 +101,9 @@ func (provider awsStorageProvider) removeUploads() {
 		}
 
 		if _, err := provider.client.DeleteObject(context.TODO(), &di); err != nil {
-			provider.t.Logf("error deleting %s from aws storage - %v", filePath, err)
+			provider.t.Logf("error deleting %s from AWS storage - %v", filePath, err)
 		} else {
-			provider.t.Logf("successfully deleted %s from aws storage", filePath)
+			provider.t.Logf("successfully deleted %s from AWS storage", filePath)
 		}
 	}
 }

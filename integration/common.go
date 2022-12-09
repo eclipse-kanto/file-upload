@@ -55,11 +55,14 @@ type storageProvider interface {
 	removeUploads()
 }
 
+// Provider represents a storage provider type
+type Provider int
+
 // Constants for different storage providers
 const (
-	AzureStorageProvider   = "Azure"
-	AWSStorageProvider     = "AWS"
-	GenericStorageProvider = "generic"
+	AzureStorageProvider Provider = iota
+	AWSStorageProvider
+	GenericStorageProvider
 )
 
 const (
