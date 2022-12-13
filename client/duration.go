@@ -18,10 +18,10 @@ import (
 	"time"
 )
 
-//Duration is custom type of type time.Duration in order to add json unmarshal support
+// Duration is custom type of type time.Duration in order to add json unmarshal support
 type Duration time.Duration
 
-//UnmarshalJSON unmarshal duration type
+// UnmarshalJSON unmarshal duration type
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(b, &v); err != nil {
@@ -41,7 +41,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-//Set duration set from string, used for flag set
+// Set duration set from string, used for flag set
 func (d *Duration) Set(s string) error {
 	v, err := time.ParseDuration(s)
 	if err != nil {

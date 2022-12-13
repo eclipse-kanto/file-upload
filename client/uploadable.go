@@ -96,16 +96,16 @@ type AutoUploadable struct {
 	mutex    sync.Mutex
 }
 
-//ErrorCode for Ditto error response
+// ErrorCode for Ditto error response
 type ErrorCode string
 
-//Error code constants
+// Error code constants
 const (
 	ErrorCodeParameterInvalid ErrorCode = "messages:parameter.invalid"
 	ErrorCodeExecutionFailed            = "messages:execution.failed"
 )
 
-//ErrorResponse is returned from operations handling functions
+// ErrorResponse is returned from operations handling functions
 type ErrorResponse struct {
 	Status    int       `json:"status"`
 	ErrorCode ErrorCode `json:"error"`
