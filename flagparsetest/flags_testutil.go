@@ -57,7 +57,7 @@ var (
 	originalFlags flag.FlagSet
 )
 
-//ResetFlags used in between tests to reset the flags
+// ResetFlags used in between tests to reset the flags
 func ResetFlags() {
 	newFlagSet := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	originalFlags.VisitAll(func(flag *flag.Flag) {

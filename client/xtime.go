@@ -17,12 +17,12 @@ import (
 	"time"
 )
 
-//Xtime is custom stuct, containing a time.Time in order to add json unmarshal support
+// Xtime is custom stuct, containing a time.Time in order to add json unmarshal support
 type Xtime struct {
 	Time *time.Time
 }
 
-//UnmarshalJSON unmarshal Xtime type
+// UnmarshalJSON unmarshal Xtime type
 func (t *Xtime) UnmarshalJSON(b []byte) error {
 	// Ignore null, like in the main JSON package.
 	if string(b) == "null" {
@@ -37,7 +37,7 @@ func (t *Xtime) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-//Set Xtime from string, used for flag set
+// Set Xtime from string, used for flag set
 func (t *Xtime) Set(s string) error {
 	if s == "" {
 		return nil
