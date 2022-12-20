@@ -315,18 +315,22 @@ func (u *AutoUploadable) messageHandler(requestID string, msg *protocol.Envelope
 		logger.Errorf("error while executing operation %s: %s", operation, responseError.Message)
 	}
 
-	headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
-		protocol.WithContentType("application/json"))
+	if msg.Headers.IsResponseRequired() {
+		logger.Debugf("response is required for operation: %s", operation)
+		headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
+			protocol.WithContentType("application/json"))
 
-	reply := &protocol.Envelope{
-		Topic:   msg.Topic,                                           // preserve the topic
-		Headers: headers,                                             // add the derived headers
-		Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1), // switch to outbox
-		Value:   message,                                             // fill the response value
-		Status:  status,                                              // set the response status
+		reply := &protocol.Envelope{
+			Topic:   msg.Topic,                                           // preserve the topic
+			Headers: headers,                                             // add the derived headers
+			Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1), // switch to outbox
+			Value:   message,                                             // fill the response value
+			Status:  status,                                              // set the response status
+		}
+		u.client.Reply(requestID, reply)
+	} else {
+		logger.Debugf("response is not required for operation: %s", operation)
 	}
-
-	u.client.Reply(requestID, reply)
 }
 
 // UpdateProperty sends Ditto message for value update of the given property
