@@ -46,7 +46,7 @@ func (suite *FileUploadSuite) SetupStorageProvider(provider Provider) {
 		if len(suite.uploadCfg.HTTPServer) == 0 {
 			suite.T().Fatal("http server must be set")
 		}
-		suite.provider = newHTTPStorageProvider(suite.T(), suite.uploadCfg.UploadDir)
+		suite.provider = newHTTPStorageProvider(suite.T(), suite.uploadCfg.HTTPServer)
 	default:
 		suite.T().Fatalf("storage provider %d not defined", provider)
 	}
