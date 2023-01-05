@@ -28,10 +28,10 @@ func (suite *FileUploadSuite) SetupSuite() {
 	suite.Setup(suite.T())
 
 	opts := env.Options{RequiredIfNoDef: false}
-	suite.uploadCfg = uploadTestConfig{}
-	require.NoError(suite.T(), env.Parse(&suite.uploadCfg, opts), "failed to process upload environment variables")
-	suite.T().Logf("upload test configuration - %v", suite.uploadCfg)
-	suite.AssertEmptyDir(suite.uploadCfg.UploadDir)
+	suite.UploadCfg = UploadTestConfig{}
+	require.NoError(suite.T(), env.Parse(&suite.UploadCfg, opts), "failed to process upload environment variables")
+	suite.T().Logf("upload test configuration - %v", suite.UploadCfg)
+	suite.AssertEmptyDir(suite.UploadCfg.UploadDir)
 
 	suite.ThingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.FeatureURL = util.GetFeatureURL(suite.ThingURL, featureID)
@@ -87,8 +87,8 @@ func (suite *FileUploadSuite) checkUploadedFiles(requestedFiles map[string]strin
 }
 
 func (suite *FileUploadSuite) testUpload() {
-	files, err := CreateTestFiles(suite.uploadCfg.UploadDir, uploadFilesCount)
-	defer suite.RemoveFilesSilently(suite.uploadCfg.UploadDir)
+	files, err := CreateTestFiles(suite.UploadCfg.UploadDir, uploadFilesCount)
+	defer suite.RemoveFilesSilently(suite.UploadCfg.UploadDir)
 	require.NoError(suite.T(), err, "creating test files failed")
 
 	requestedFiles := suite.UploadRequests(featureID, operationTrigger, nil, uploadFilesCount)

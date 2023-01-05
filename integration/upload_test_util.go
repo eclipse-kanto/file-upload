@@ -43,10 +43,10 @@ func (suite *FileUploadSuite) SetupStorageProvider(provider Provider) {
 	case AzureStorageProvider:
 		suite.provider = newAzureStorageProvider(suite.T())
 	case GenericStorageProvider:
-		if len(suite.uploadCfg.HTTPServer) == 0 {
+		if len(suite.UploadCfg.HTTPServer) == 0 {
 			suite.T().Fatal("http server must be set")
 		}
-		suite.provider = newHTTPStorageProvider(suite.T(), suite.uploadCfg.HTTPServer)
+		suite.provider = newHTTPStorageProvider(suite.T(), suite.UploadCfg.HTTPServer)
 	default:
 		suite.T().Fatalf("storage provider %d not defined", provider)
 	}
