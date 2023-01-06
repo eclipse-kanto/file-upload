@@ -25,7 +25,7 @@ type FileUploadSuite struct {
 	ThingURL   string
 	FeatureURL string
 
-	uploadCfg uploadTestConfig
+	UploadCfg UploadTestConfig
 	provider  storageProvider
 }
 
@@ -41,8 +41,8 @@ type awsFileUploadSuite struct {
 	FileUploadSuite
 }
 
-// uploadTestConfig contains the test configuration data, such as upload directory and http server URL
-type uploadTestConfig struct {
+// UploadTestConfig contains the test configuration data, such as upload directory and http server URL
+type UploadTestConfig struct {
 	UploadDir  string `env:"FUT_UPLOAD_DIR"`
 	HTTPServer string `env:"FUT_HTTP_SERVER"`
 }
