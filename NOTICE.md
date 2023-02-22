@@ -148,11 +148,11 @@ golang/go (1.19.4)
 * Project: https://github.com/golang/go
 * Source:  https://github.com/golang/go/releases/tag/go1.19.4
 
-golang.org/x/net (v0.6.0)
+golang.org/x/net (v0.7.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://pkg.go.dev/golang.org/x/net
-* Source:  https://github.com/golang/net/tree/v0.6.0
+* Source:  https://github.com/golang/net/tree/v0.7.0
 
 golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
 
