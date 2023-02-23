@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
@@ -160,9 +159,6 @@ func isCertAddedToSystemPool(t *testing.T, certFile string) bool {
 func setSSLCerts(t *testing.T) {
 	t.Helper()
 
-	if runtime.GOOS != "linux" {
-		t.Skip("this test only runs on Linux.")
-	}
 	sslCertFile = os.Getenv(sslCertFileEnv)
 	err := os.Setenv(sslCertFileEnv, validCert)
 	if err != nil {
