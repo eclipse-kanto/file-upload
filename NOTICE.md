@@ -160,17 +160,17 @@ golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
 * Project: https://pkg.go.dev/golang.org/x/sync
 * Source:  https://github.com/golang/sync/tree/036812b2e83c0ddf193dd5a34e034151da389d09
 
+golang.org/x/text (v0.7.0)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://pkg.go.dev/golang.org/x/text
+* Source:  https://github.com/golang/text/tree/v0.7.0
+
 azure-sdk-for-go/sdk/azcore (0.20.0)
 
 * License: MIT License
 * Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/azcore
 * Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/azcore/v0.20.0/sdk/azcore
-
-azure-sdk-for-go/sdk/azidentity (0.12.0)
-
-* License: MIT License
-* Project: https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/azidentity
-* Source:  https://github.com/Azure/azure-sdk-for-go/tree/sdk/azidentity/v0.12.0/sdk/azidentity
 
 azure-sdk-for-go/sdk/internal (0.8.1)
 
