@@ -142,11 +142,11 @@ gorilla/websocket (1.4.2)
 * Project: https://github.com/gorilla/websocket
 * Source:  https://github.com/gorilla/websocket/releases/tag/v1.4.2 
 
-golang/go (1.19.4)
+golang/go (1.21.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/go
-* Source:  https://github.com/golang/go/releases/tag/go1.19.4
+* Source:  https://github.com/golang/go/releases/tag/go1.21.0
 
 golang.org/x/net (v0.7.0)
 
