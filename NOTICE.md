@@ -148,11 +148,11 @@ golang/go (1.21.0)
 * Project: https://github.com/golang/go
 * Source:  https://github.com/golang/go/releases/tag/go1.21.0
 
-golang.org/x/net (v0.7.0)
+golang.org/x/net (v0.17.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://pkg.go.dev/golang.org/x/net
-* Source:  https://github.com/golang/net/tree/v0.7.0
+* Source:  https://github.com/golang/net/tree/v0.17.0
 
 golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
 
@@ -160,11 +160,11 @@ golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
 * Project: https://pkg.go.dev/golang.org/x/sync
 * Source:  https://github.com/golang/sync/tree/036812b2e83c0ddf193dd5a34e034151da389d09
 
-golang.org/x/text (v0.7.0)
+golang.org/x/text (v0.13.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://pkg.go.dev/golang.org/x/text
-* Source:  https://github.com/golang/text/tree/v0.7.0
+* Source:  https://github.com/golang/text/tree/v0.13.0
 
 azure-sdk-for-go/sdk/azcore (0.20.0)
 
